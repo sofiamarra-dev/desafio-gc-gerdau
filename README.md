@@ -13,7 +13,6 @@ Projeto desenvolvido durante o desafio proposto pela Gerdau, através do program
 
 ## Como executar
 
-
 ## Equipe
 - Nome 1 Sofia Marra
 - Nome 2 Renan Macedo

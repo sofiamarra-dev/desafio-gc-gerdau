@@ -1,4 +1,8 @@
 HELP.md
+.venv/
+__pycache__/
+.pytest_cache/
+ai-python/data/
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar

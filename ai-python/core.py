@@ -14,7 +14,7 @@ FIELDS = ['grupo_servico', 'codigo_fornecedor', 'codigo_servico', 'descricao_ite
 
 
 def passage(item: dict) -> str:
-    # Descrição recebe maior destaque. Unidade expandida aproveita aba de referência.
+
     description = item.get('descricao_item', '')
     group = item.get('grupo_servico', '')
     unit = item.get('unidade_descricao', '') or item.get('unidade_medida', '')
@@ -40,7 +40,7 @@ class Catalog:
                     return
 
                 loaded = np.load(npy_file, allow_pickle=False) # lê a informação do arquivo de embeddings
-                if len(contents['items']) == len(loaded) # verifica se carregou corretamente
+                if loaded.ndim == 2 and len(contents['items']) == len(loaded): # verifica se carregou corretamente
                     self.items = contents['items']
                     self.vectors = unit_vector(loaded)
             except (OSError, ValueError, KeyError):
@@ -64,7 +64,7 @@ class Catalog:
         texts = []
 
         for item in registros:
-            texto = passage.item
+            texto = passage(item)
             texts.append(texto)
 
         vectors = self.embedder.embed(texts) # aqui transforma o texto no vetor de embeddings
@@ -73,22 +73,22 @@ class Catalog:
 
         with self.lock:
 
-            self.items = clean
-            self.vectors = vectors
-
             with tempfile.NamedTemporaryFile(mode='wb', dir=self.data_dir, delete=False) as f: # cria um arquivo para armazenar os vetores
                 np.save(f, vectors)
                 tmp_npy = Path(f.name)
 
             with tempfile.NamedTemporaryFile(mode='w', dir=self.data_dir, delete=False, encoding='utf-8') as f: # também cria um arquivo, mas para armazenar os serviços
-                json.dump({'embedder': self.embedder.name, 'items': clean}, f, ensure_ascii=False)
+                json.dump({'embedder': self.embedder.name, 'items': registros}, f, ensure_ascii=False)
                 tmp_json = Path(f.name)
 
             # aqui subistitui os arquivos antigos pelos novos com as informações novas
             os.replace(tmp_npy, self.data_dir / 'vectors.npy')
             os.replace(tmp_json, self.data_dir / 'catalog.json')
 
-        return len(clean)
+            self.items = registros
+            self.vectors = vectors
+
+        return len(registros)
 
     def search(self, query: str, limit: int = 20) -> list[dict]: #metodo que retorna a lista dos mais proximos
 
@@ -102,22 +102,27 @@ class Catalog:
             items = list(self.items)
             vectors = self.vectors.copy()
 
-        buscaEmbedding = self.embedder.embed([query], is_query=True)[0] # faz o embedding da busca
+        buscaEmbedding = self.embedder.embed([query])[0] # faz o embedding da busca
+
+        if buscaEmbedding.shape[0] != vectors.shape[1]:
+            raise ValueError('Vetores incompatíveis com o modelo atual. Reimporte a planilha.')
 
         scores = vectors @ buscaEmbedding # faz a multiplicação dos vetores da busca e dos serviços
 
         buscaNorm = normalized(query)
 
-        # Correspondências exatas de código ou descrição recebem prioridade explícita.
+        exact_matches = np.zeros(len(items), dtype=bool)
 
         for i, item in enumerate(items):
             if buscaNorm and buscaNorm in (normalized(item['codigo_servico']), normalized(item['descricao_item'])):
+                exact_matches[i] = True
                 scores[i] = 1.0
         nItens = min(max(1, limit), 20, len(items))
-        top = np.argsort(-scores, kind='stable')[:nItens] #faz a ordenação e limita a quantidade de itens
+
+        top = np.lexsort((-scores, -exact_matches.astype(int)))[:nItens]
 
         return [dict(items[int(i)], similaridade=round(float(np.clip(scores[i], -1, 1)), 4),
-                     correspondencia_exata=(bool(query_norm) and query_norm in (
+                     correspondencia_exata=(bool(buscaNorm) and buscaNorm in (
                          normalized(items[int(i)]['codigo_servico']),
                          normalized(items[int(i)]['descricao_item'])))) for i in top]
 

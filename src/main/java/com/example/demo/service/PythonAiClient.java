@@ -36,7 +36,7 @@ public class PythonAiClient {
 
     public JsonNode search(String query) {
         return rest.postForObject(baseUrl + "/search",
-                new HttpEntity<>(asJson(new SearchRequest(query, 10)), jsonHeaders()), JsonNode.class);
+                new HttpEntity<>(asJson(new SearchRequest(query, 20)), jsonHeaders()), JsonNode.class);
     }
 
     public JsonNode status() {

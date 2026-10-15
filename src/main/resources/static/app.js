@@ -282,7 +282,7 @@ async function searchCodes() {
         button.disabled = false;
 
         button.innerHTML =
-            'Encontrar os 10 mais próximos <span>↗</span>';
+            'Encontrar os 20 mais próximos <span>↗</span>';
     }
 }
 
