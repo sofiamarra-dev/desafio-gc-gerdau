@@ -5,6 +5,95 @@ function $(id){ // fazemos isso pra não ter que ficar sempre escrevendo muito t
 
 const notice = $('notice');
 
+let numeroDeCaracteresLivres = 40
+
+
+function leitorDeFormulario(){
+    let codigo = ""
+
+    codigo = $('campoLivre').value
+
+    if ($('servico').checked){
+        codigo = 'SV ' + codigo
+    }
+
+    if ($('horaExtra').checked){
+        codigo += ' HE'
+    }
+
+    if ($('periculosidade').checked){
+        codigo += " PERI"
+    }
+
+    if ($('insalubridade').checked){
+        codigo += " INSA"
+    }
+
+    if ($('horaNoturna').checked){
+        codigo += " HNOT"
+    }
+
+    if ($('horaNormal').checked){
+        codigo += " HNOR"
+    }
+
+    if ($('domingoFeriado').checked){
+        codigo += " DOMF"
+    }
+
+    if ($('semanal').checked){
+        codigo += " SEM"
+    }
+
+    if ($('mensal').checked){
+        codigo += " MEN"
+    }
+
+    if ($('anual').checked){
+        codigo += " ANO"
+    }
+
+    if ($('segurancaDoTrabalho').checked){
+        codigo += " FDS"
+    }
+
+    if ($('administracao').checked){
+        codigo += " ADM"
+    }
+
+    if ($('engenhariaDeProducao').checked){
+        codigo += " ESP"
+    }
+
+    if ($('campoPercentualAdicional').value !== "") {
+        codigo += ' '+$('campoPercentualAdicional').value + "%";
+    }
+
+    codigo += ' ' +$('campoMedida').value
+
+    codigo = codigo.trim()
+
+    $('search-input').value = codigo
+
+    numeroDeCaracteresLivres = 40 - codigo.length
+
+}
+
+document.querySelectorAll('input[type="checkbox"]').forEach(function(checkbox) {
+    checkbox.addEventListener("change", leitorDeFormulario);
+});
+
+$('campoLivre').addEventListener("input", function(event) {
+    leitorDeFormulario()
+});
+
+$('campoMedida').addEventListener("input", function(event) {
+    leitorDeFormulario()
+});
+
+$('campoPercentualAdicional').addEventListener("input", function(event) { // só aceita numeros
+    leitorDeFormulario()
+});
 
 function showNotice(message, type = '') {
     notice.textContent = message;
