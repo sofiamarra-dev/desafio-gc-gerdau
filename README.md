@@ -1,5 +1,3 @@
-
-
 # Desafio GC - Gerdau
 
 Projeto desenvolvido durante o desafio proposto pela Gerdau, através do programa Geração Caldeira.
