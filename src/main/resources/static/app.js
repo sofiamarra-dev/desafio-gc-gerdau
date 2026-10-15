@@ -8,6 +8,9 @@ const notice = $('notice');
 let numeroDeCaracteresLivres = 40
 
 
+
+// nao esta efetivamente limitando, tambem ainda precisa ser levado em conta caso um campo
+// seja selecionado depois do campo livre
 function leitorDeFormulario(){
     let codigo = ""
 
@@ -73,9 +76,17 @@ function leitorDeFormulario(){
 
     codigo = codigo.trim()
 
+    codigo = codigo.toUpperCase()
+
     $('search-input').value = codigo
 
     numeroDeCaracteresLivres = 40 - codigo.length
+
+    $('characterCount').textContent = numeroDeCaracteresLivres
+
+    $('characterCount').style.color = numeroDeCaracteresLivres == 0 ? 'red' : 'green';
+
+    $('campoLive').maxLength = numeroDeCaracteresLivres;
 
 }
 

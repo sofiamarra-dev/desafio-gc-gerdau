@@ -1,10 +1,273 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro e Busca de Códigos</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="app.js" defer></script>
 </head>
-<body>
 
+<body>
+<header class="header">
+    <div class="container">
+        <h1>Cadastro de Códigos</h1>
+        <p>Geração automática e busca de serviços semelhantes</p>
+    </div>
+</header>
+
+<main class="container">
+
+    <!-- STATUS DA API -->
+    <section class="status-bar">
+        <div>
+            <strong>Catálogo:</strong>
+            <span id="catalog-count">—</span> serviços
+        </div>
+
+        <span id="mode-pill" class="pill">
+                ● Verificando serviço...
+            </span>
+    </section>
+
+    <!-- IMPORTAÇÃO -->
+    <section class="card">
+        <div class="section-header">
+            <h2>Importar catálogo</h2>
+            <p>Envie uma planilha XLSX para indexar os serviços.</p>
+        </div>
+
+        <form id="upload-form">
+            <label for="file-input" id="dropzone" class="dropzone">
+                <span class="upload-icon">↑</span>
+                <strong id="filename">
+                    Selecione ou arraste um XLSX
+                </strong>
+                <small>Tamanho máximo: 15 MB</small>
+                <input
+                        type="file"
+                        id="file-input"
+                        accept=".xlsx"
+                >
+            </label>
+
+            <button
+                    type="submit"
+                    id="upload-button"
+                    class="btn btn-primary"
+            >
+                Importar e indexar códigos
+                <span>→</span>
+            </button>
+        </form>
+    </section>
+
+    <!-- FORMULÁRIO -->
+    <section class="card">
+        <div class="section-header">
+            <h2>Gerador de código</h2>
+            <p>Preencha os campos para montar o código automaticamente.</p>
+        </div>
+
+
+
+        <h3>Tipo de serviço</h3>
+        <div class="checkbox-grid">
+            <label class="checkbox-item">
+                <input type="checkbox" id="servico">
+                Serviço (SV)
+            </label>
+
+            <label class="checkbox-item">
+                <input type="checkbox" id="horaExtra">
+                Hora extra (HE)
+            </label>
+        </div>
+
+        <h3>Adicionais</h3>
+        <div class="checkbox-grid">
+            <label class="checkbox-item">
+                <input type="checkbox" id="periculosidade">
+                Periculosidade (PERI)
+            </label>
+
+            <label class="checkbox-item">
+                <input type="checkbox" id="insalubridade">
+                Insalubridade (INSA)
+            </label>
+        </div>
+
+        <h3>Tipo de hora</h3>
+        <div class="checkbox-grid">
+            <label class="checkbox-item">
+                <input type="checkbox" id="horaNoturna">
+                Hora noturna (HNOT)
+            </label>
+
+            <label class="checkbox-item">
+                <input type="checkbox" id="horaNormal">
+                Hora normal (HNOR)
+            </label>
+
+            <label class="checkbox-item">
+                <input type="checkbox" id="domingoFeriado">
+                Domingo / Feriado (DOMF)
+            </label>
+        </div>
+
+        <h3>Periodicidade</h3>
+        <div class="checkbox-grid">
+            <label class="checkbox-item">
+                <input type="checkbox" id="semanal">
+                Semanal (SEM)
+            </label>
+
+            <label class="checkbox-item">
+                <input type="checkbox" id="mensal">
+                Mensal (MEN)
+            </label>
+
+            <label class="checkbox-item">
+                <input type="checkbox" id="anual">
+                Anual (ANO)
+            </label>
+        </div>
+
+        <h3>Área</h3>
+        <div class="checkbox-grid">
+            <label class="checkbox-item">
+                <input type="checkbox" id="segurancaDoTrabalho">
+                Segurança do trabalho (FDS)
+            </label>
+
+            <label class="checkbox-item">
+                <input type="checkbox" id="administracao">
+                Administração (ADM)
+            </label>
+
+            <label class="checkbox-item">
+                <input type="checkbox" id="engenhariaDeProducao">
+                Engenharia de produção (ESP)
+            </label>
+        </div>
+
+        <h3>Informações complementares</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="campoPercentualAdicional">
+                    Percentual adicional (%)
+                </label>
+                <input
+                        type="number"
+                        id="campoPercentualAdicional"
+                        min="0"
+                        max="100"
+                        placeholder="Ex.: 50"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="campoMedida">Unidade de medida</label>
+                <input
+                        type="text"
+                        id="campoMedida"
+                        placeholder="Ex.: H, UN, M2"
+                >
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="campoLivre">Descrição livre</label>
+            <small>
+                Limite de 40 caracteres.
+                Restantes:
+                <strong id="characterCount">40</strong>
+            </small>
+            <input
+                    type="text"
+                    id="campoLivre"
+                    placeholder="Ex.: Manutenção de equipamentos"
+            >
+        </div>
+    </section>
+
+    <!-- PESQUISA -->
+    <section class="card">
+        <div class="section-header">
+            <h2>Pesquisar códigos semelhantes</h2>
+            <p>O código gerado aparece automaticamente no campo abaixo.</p>
+        </div>
+
+        <form id="search-form">
+            <div class="form-group">
+                <label for="search-input">Código gerado</label>
+                <input
+                        type="text"
+                        id="search-input"
+                        placeholder="O código aparecerá aqui..."
+                >
+            </div>
+
+            <button
+                    type="submit"
+                    id="search-button"
+                    class="btn btn-primary"
+            >
+                Encontrar os 20 mais próximos
+                <span>↗</span>
+            </button>
+        </form>
+
+        <div class="examples">
+            <span>Exemplos:</span>
+            <button type="button" class="chip" data-query="SV MANUTENCAO">
+                SV MANUTENCAO
+            </button>
+            <button type="button" class="chip" data-query="SV HE HNOT">
+                SV HE HNOT
+            </button>
+        </div>
+    </section>
+
+    <!-- MENSAGENS -->
+    <div id="notice" class="notice" aria-live="polite"></div>
+
+    <!-- RESULTADOS -->
+    <section class="card">
+        <div class="results-header">
+            <h2>Resultados da pesquisa</h2>
+            <span id="result-count">0 RESULTADOS</span>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Serviço</th>
+                    <th>Fornecedor</th>
+                    <th>Unidade</th>
+                    <th>Similaridade</th>
+                </tr>
+                </thead>
+
+                <tbody id="results-body">
+                <tr>
+                    <td colspan="5" class="empty">
+                        Nenhuma pesquisa realizada.
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="container">
+        <span>Sistema de Cadastro de Códigos</span>
+        <span id="footer-model">Motor: verificando...</span>
+    </div>
+</footer>
 </body>
 </html>
