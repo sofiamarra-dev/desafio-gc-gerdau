@@ -1,5 +1,5 @@
 
-function $(id){
+function $(id){ // fazemos isso pra não ter que ficar sempre escrevendo muito texto para pegar o elemento
     return document.getElementById(id);
 }
 
@@ -46,31 +46,26 @@ async function apiJson(path, options = {}) {
 }
 
 
-async function refreshStatus() {
+async function refreshStatus() { // aqui pega o status da API e muda o front apartir dele
     try {
         const state = await apiJson('/api/status');
 
-        $('catalog-count').textContent =
-            Number(state.size).toLocaleString('pt-BR');
+        $('catalog-count').textContent = Number(state.size).toLocaleString('pt-BR');
 
         const isDemo = state.mode === 'demo';
 
-        $('mode-pill').className =
-            `pill ${isDemo ? 'demo' : 'active'}`;
+        $('mode-pill').className = `pill ${isDemo ? 'demo' : 'active'}`;
 
-        $('mode-pill').textContent = isDemo
-            ? '● Modo de demonstração (sem IA)'
-            : '● Busca semântica por embeddings';
+        $('mode-pill').textContent = isDemo ? '● Modo de demonstração (sem IA)' : '● Busca semântica por embeddings';
 
         $('footer-model').textContent = `Motor: ${state.model}`;
 
-    } catch {
+    } catch { // caso tenha algum erro, os valores alterados serão:
         $('catalog-count').textContent = '—';
 
         $('mode-pill').className = 'pill';
 
-        $('mode-pill').textContent =
-            '● Serviço Python indisponível';
+        $('mode-pill').textContent = '● Serviço Python indisponível';
 
         $('footer-model').textContent =
             'Inicie o serviço Python na porta 8001';
@@ -78,7 +73,7 @@ async function refreshStatus() {
 }
 
 
-function createCell(text, cls = '') {
+function createCell(text, cls = '') { // cria uma linha na tabela
     const el = document.createElement('div');
 
     el.className = cls;
@@ -178,7 +173,7 @@ function renderResults(results) {
 }
 
 
-$('upload-form').addEventListener('submit', async (event) => {
+$('upload-form').addEventListener('submit', async (event) => { // sempre que é enviado o arquivo, executa esse codigo
     event.preventDefault();
 
     const file = $('file-input').files[0];
@@ -242,8 +237,7 @@ $('upload-form').addEventListener('submit', async (event) => {
     } finally {
         button.disabled = false;
 
-        button.innerHTML =
-            'Importar e indexar códigos <span>→</span>';
+        button.innerHTML = 'Importar e indexar códigos <span>→</span>';
     }
 });
 
