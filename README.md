@@ -20,5 +20,5 @@ Projeto desenvolvido durante o desafio proposto pela Gerdau, através do program
 - Nome 1 Sofia Marra
 - Nome 2 Renan Macedo
 - Nome 3 Guilherme Barros
-- Nome 4   
+- Nome 4 Nathallya Fontoura  
 - Nome 5 Daniel Osterkamp
