@@ -29,7 +29,6 @@ class SearchRequest(BaseModel):
 
 
 def create_app(embedder_factory=MiniLMEmbedder, data_dir=None):
-    # A fábrica permite testar as rotas sem baixar o modelo a cada teste.
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         directory = Path(data_dir) if data_dir is not None else Path(
@@ -45,7 +44,9 @@ def create_app(embedder_factory=MiniLMEmbedder, data_dir=None):
         catalog = api.state.catalog
         with catalog.lock:
             return {'ready': True, 'mode': 'local', 'model': catalog.embedder.name,
-                    'size': len(catalog.items)}
+                    'size': len(catalog.items), 'requires_reindex': catalog.requires_reindex,
+                    'weights': {'description': catalog.description_weight,
+                                'context': catalog.context_weight}}
 
     @api.post('/index')
     def index(request: IndexRequest):

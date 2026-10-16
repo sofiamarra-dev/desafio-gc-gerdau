@@ -9,7 +9,7 @@ MODEL_NAME = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'
 
 
 def normalized(text: str) -> str:
-    # Somente para reconhecer códigos/descrições exatos; o modelo recebe texto original.
+    # muda os textos para que não possuam acento e coisas parecidas, o código final é gerado com os acentos normalmente
     text = unicodedata.normalize('NFKD', text.lower())
     text = ''.join(c for c in text if not unicodedata.combining(c))
     return re.sub(r'[^a-z0-9]+', ' ', text).strip()
