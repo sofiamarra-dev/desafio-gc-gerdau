@@ -1,0 +1,28 @@
+.cleanup-page { padding-bottom: 3rem; }
+.menu-grid.cleanup-menu { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.cleanup-check { display: flex; align-items: center; gap: .65rem; font-weight: 600; margin: 1rem 0 .4rem; }
+.cleanup-check input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: #00529b; }
+.cleanup-muted { color: #59677a; font-size: .9rem; }
+.cleanup-counts { display: grid; grid-template-columns: repeat(4,1fr); gap: .75rem; margin: 1rem 0; }
+.cleanup-counts div { background: #f0f5fb; border-radius: 10px; padding: 1rem; }
+.cleanup-counts strong { display: block; font-size: 1.65rem; color: #12335b; }
+.cleanup-counts span { font-size: .85rem; color: #536176; }
+#cleanup-progress { width: 100%; height: .65rem; accent-color: #00529b; }
+.cleanup-badge { padding: .35rem .7rem; border-radius: 20px; background: #e8f1fb; color: #174b7c; font-size: .85rem; }
+#cleanup-review { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.6fr); gap: 1.25rem; margin-top: 1.4rem; align-items: start; }
+.cleanup-current { border-left: 4px solid #00529b; margin: 0; position: sticky; top: 1rem; }
+.cleanup-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .65rem 1rem; margin: 1rem 0 0; }
+.cleanup-fields dt { color: #657285; font-size: .8rem; }
+.cleanup-fields dd { margin: .15rem 0 0; overflow-wrap: anywhere; }
+.cleanup-candidates { display: grid; gap: 1rem; margin: 1rem 0; }
+.cleanup-candidate { border: 1px solid #d9e2ee; border-radius: 10px; padding: 1.1rem; background: #fff; }
+.cleanup-candidate h4 { margin: .5rem 0; font-size: 1rem; overflow-wrap: anywhere; }
+.cleanup-candidate .workflow-actions { margin-bottom: 0; }
+.cleanup-score { color: #18573b; background: #e9f5ee; border-radius: 5px; padding: .25rem .45rem; font-size: .85rem; }
+.cleanup-summary { margin-top: 1.25rem; padding: 1.25rem; background: #eff7f2; border: 1px solid #cde3d4; border-radius: 10px; }
+.cleanup-log { margin-top: 1.5rem; border-top: 1px solid #dce3eb; padding-top: 1rem; }
+.cleanup-log li { margin: .4rem 0; overflow-wrap: anywhere; }
+.cleanup-page [hidden] { display: none !important; }
+.cleanup-page .btn { white-space: normal; }
+@media(max-width: 800px) { #cleanup-review, .menu-grid.cleanup-menu { grid-template-columns: 1fr; } .cleanup-current { position: static; } }
+@media(max-width: 650px) { .cleanup-counts { grid-template-columns: repeat(2,1fr); } .cleanup-fields { grid-template-columns: 1fr; } .cleanup-page .results-header { align-items: flex-start; gap: .6rem; flex-direction: column; } }

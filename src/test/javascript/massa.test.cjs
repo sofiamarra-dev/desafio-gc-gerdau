@@ -20,7 +20,7 @@ class Element {
 function explanation(original, activity, qualifiers, standardized = original, needs_review = false) {
   return {original, activity, qualifiers, standardized, needs_review, dictionary_version:'test:1'};
 }
-async function setup(descriptions, analyze) {
+async function setup(descriptions, analyze, autoMatch = () => ({automatic:false, resolved:false})) {
   const elements = {};
   for (const match of html.matchAll(/<([\w-]+)[^>]*\bid="([^"]+)"[^>]*>/g)) {
     const el = elements[match[2]] = new Element(match[1]);
@@ -36,6 +36,11 @@ async function setup(descriptions, analyze) {
     if (url === '/api/catalog/batches') data = [{id:'b', filename:'Teste', total:rows.length, pending:rows.filter(r => r.status === 'PENDING').length}];
     else if (url.includes('/items?')) data = rows.filter(r => r.row_number > Number(new URL(url, 'http://test').searchParams.get('after')));
     else if (url === '/api/search') data = {results:[], query_parts:await analyze(body.query)};
+    else if (url.endsWith('/auto-match')) {
+      const row = rows.find(r => url.includes(`/items/${r.id}/`));
+      data = await autoMatch(row);
+      if (data.resolved) row.status = 'EXISTING';
+    }
     else if (url.endsWith('/decision')) { rows.find(r => url.includes(`/items/${r.id}/`)).status = 'CREATED'; data = {}; }
     else throw new Error(`Unexpected request ${url}`);
     return {ok:true, json:async () => data};
@@ -121,4 +126,30 @@ test('refreshes the current line after changing the dictionary and renders descr
   assert.equal(e['request-description'].textContent, original);
   assert.equal(e['request-standardized'].textContent, '<img src=x> PINTOR HE');
   assert.equal(e['request-qualifiers'].children[0].textContent, 'HE');
+});
+
+test('automatically reuses semantic100 matches then presents the next unresolved request', async () => {
+  const {elements:e, calls, rows, confirmations} = await setup(['Pintura', 'Motor'],
+    q => explanation(q,q,[]), row => ({automatic:row.id === '1', resolved:row.id === '1'}));
+  assert.equal(rows[0].status, 'EXISTING');
+  assert.equal(rows[1].status, 'PENDING');
+  assert.equal(e['request-description'].textContent, 'Motor');
+  assert.match(e['batch-auto-summary'].textContent, /1 linha/);
+  assert.equal(calls.filter(c => c.url.endsWith('/decision')).length, 0);
+  assert.equal(calls.filter(c => c.url === '/api/search').length, 1);
+  assert.equal(confirmations.length, 0);
+});
+
+test('auto-match failures keep the row pending and disable creation until retry', async () => {
+  let unavailable = true;
+  const {elements:e, rows} = await setup(['Motor'], q => explanation(q,q,[]), () => {
+    if (unavailable) throw new Error('Comparador indisponível');
+    return {automatic:false,resolved:false};
+  });
+  assert.equal(rows[0].status, 'PENDING');
+  assert.equal(e['create-request'].disabled, true);
+  assert.match(e['batch-notice'].textContent, /continua pendente/);
+  unavailable = false;
+  await e['retry-request'].click();
+  assert.equal(e['create-request'].disabled, false);
 });

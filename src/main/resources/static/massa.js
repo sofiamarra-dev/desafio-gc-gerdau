@@ -6,6 +6,8 @@ let generation = 0;
 let suggestionsReady = false;
 let separationReady = false;
 let separationNeedsReview = false;
+let automaticResolved = 0;
+let pauseAutomatic = false;
 
 function notice(text, error = false) {
   byId('batch-notice').textContent = text;
@@ -24,6 +26,7 @@ function setBusy(value) {
   byId('create-request').disabled = value || !activeItem || !suggestionsReady || !separationReady;
   byId('next-request').disabled = value || !activeItem;
   byId('retry-request').disabled = value || !activeItem;
+  byId('resume-automatic').disabled = value;
   document.querySelectorAll('#batch-results button').forEach(button => { button.disabled = value || !button.dataset.serviceId; });
   document.querySelectorAll('#batch-list button').forEach(button => { button.disabled = value; });
   for (const id of ['batch-upload-button', 'batch-text-button', 'source-excel', 'source-text', 'batch-text', 'batch-file']) byId(id).disabled = value;
@@ -78,6 +81,8 @@ async function loadBatches() {
     button.addEventListener('click', async () => {
       if (busy) return;
       activeBatch = batch.id;
+      automaticResolved = 0;
+      byId('batch-auto-summary').textContent = '';
       byId('review-section').hidden = false;
       byId('batch-export').href = `/api/catalog/batches/${encodeURIComponent(activeBatch)}/export`;
       await showPending(0);
@@ -106,9 +111,30 @@ async function showPending(after) {
   byId('request-context').textContent = '';
   setBusy(true);
   byId('batch-results').replaceChildren();
+  pauseAutomatic = false;
+  byId('resume-automatic').hidden = true;
+  byId('pause-automatic').hidden = false;
+  byId('pause-automatic').disabled = false;
   try {
-    activeItem = await findPending(after);
-    if (!activeItem && after > 0) activeItem = await findPending(0);
+    while (true) {
+      if (pauseAutomatic) {
+        byId('request-title').textContent = 'Revisão pausada';
+        byId('resume-automatic').hidden = false;
+        notice('O progresso foi salvo. Retome quando desejar.');
+        return;
+      }
+      activeItem = await findPending(after);
+      if (!activeItem && after > 0) activeItem = await findPending(0);
+      if (!activeItem || ticket !== generation) break;
+      byId('request-title').textContent = `Verificando linha ${activeItem.row_number}…`;
+      const match = await request(`/api/catalog/batches/${encodeURIComponent(activeBatch)}/items/${encodeURIComponent(activeItem.id)}/auto-match`, post({}));
+      if (ticket !== generation) return;
+      if (!match.resolved) break;
+      if (match.automatic) automaticResolved++;
+      byId('batch-auto-summary').textContent = `${automaticResolved} linha(s) vinculada(s) automaticamente nesta revisão por 100% dos embeddings. Nenhum novo cadastro foi criado para elas.`;
+      after = activeItem.row_number;
+      activeItem = null;
+    }
     await loadBatches();
     if (ticket !== generation) return;
     if (!activeItem) {
@@ -157,7 +183,7 @@ async function showPending(after) {
     byId('retry-request').textContent = 'Tentar novamente';
     separationStatus('Não foi possível carregar a análise. Tente novamente para conferir esta solicitação.', true);
     notice(`${error.message} A solicitação continua pendente.`, true);
-  } finally { if (ticket === generation) setBusy(false); }
+  } finally { if (ticket === generation) { byId('pause-automatic').hidden = true; setBusy(false); } }
 }
 async function decide(action, serviceId) {
   if (busy || !activeItem || !suggestionsReady || (action === 'CREATE' && !separationReady)) return;
@@ -174,6 +200,8 @@ async function decide(action, serviceId) {
 byId('retry-request').addEventListener('click', () => { if (!busy && activeItem) showPending(activeItem.row_number - 1); });
 byId('next-request').addEventListener('click', () => { if (!busy && activeItem) showPending(activeItem.row_number); });
 byId('create-request').addEventListener('click', () => decide('CREATE'));
+byId('pause-automatic').addEventListener('click', () => { pauseAutomatic = true; byId('pause-automatic').disabled = true; });
+byId('resume-automatic').addEventListener('click', () => { if (!busy) { byId('pause-automatic').disabled = false; showPending(0); } });
 byId('batch-upload').addEventListener('submit', async event => {
   event.preventDefault(); if (busy) return;
   const file = byId('batch-file').files[0];
@@ -183,6 +211,8 @@ byId('batch-upload').addEventListener('submit', async event => {
     const form = new FormData(); form.append('file', file);
     const batch = await request('/api/catalog/batches', {method:'POST', body:form});
     activeBatch = batch.id;
+    automaticResolved = 0;
+    byId('batch-auto-summary').textContent = '';
     byId('review-section').hidden = false;
     byId('batch-export').href = `/api/catalog/batches/${encodeURIComponent(activeBatch)}/export`;
     await showPending(0);
@@ -209,6 +239,8 @@ byId('batch-text-form').addEventListener('submit', async event => {
   try {
     const batch = await request('/api/catalog/batches/text', post({text}));
     activeBatch = batch.id;
+    automaticResolved = 0;
+    byId('batch-auto-summary').textContent = '';
     byId('review-section').hidden = false;
     byId('batch-export').href = `/api/catalog/batches/${encodeURIComponent(activeBatch)}/export`;
     await showPending(0);

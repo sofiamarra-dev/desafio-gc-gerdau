@@ -23,7 +23,7 @@ public class CatalogStore {
         this.tx = new TransactionTemplate(manager);
     }
 
-    // Serializa as alterações do catálogo também entre duas instâncias do Java.
+    // Serializa as alteraÃ§Ãµes do catÃ¡logo tambÃ©m entre duas instÃ¢ncias do Java.
     private void lockCatalog() {
         db.queryForObject("SELECT revision FROM catalog_state WHERE id=1 FOR UPDATE", Long.class);
         if ("initial".equals(db.queryForObject("SELECT dataset_key FROM catalog_state WHERE id=1", String.class))) {
@@ -32,16 +32,16 @@ public class CatalogStore {
     }
 
     public Map<String, String> validate(Map<String, String> input, boolean requireCode) {
-        if (input == null) throw new IllegalArgumentException("Informe os dados do serviço.");
+        if (input == null) throw new IllegalArgumentException("Informe os dados do serviÃ§o.");
         var clean = new LinkedHashMap<String, String>();
         int[] lengths = {160, 128, 128, 300, 32, 160};
         for (int i = 0; i < FIELDS.length; i++) {
             String value = Objects.toString(input.get(FIELDS[i]), "").strip();
-            if (value.length() > lengths[i]) throw new IllegalArgumentException(FIELDS[i] + ": máximo de " + lengths[i] + " caracteres.");
+            if (value.length() > lengths[i]) throw new IllegalArgumentException(FIELDS[i] + ": mÃ¡ximo de " + lengths[i] + " caracteres.");
             clean.put(FIELDS[i], value);
         }
-        if (clean.get("descricao_item").isBlank()) throw new IllegalArgumentException("Preencha a descrição do serviço.");
-        if (requireCode && clean.get("codigo_servico").isBlank()) throw new IllegalArgumentException("Preencha o código do serviço.");
+        if (clean.get("descricao_item").isBlank()) throw new IllegalArgumentException("Preencha a descriÃ§Ã£o do serviÃ§o.");
+        if (requireCode && clean.get("codigo_servico").isBlank()) throw new IllegalArgumentException("Preencha o cÃ³digo do serviÃ§o.");
         clean.put("unidade_medida", clean.get("unidade_medida").toUpperCase(Locale.ROOT));
         return clean;
     }
@@ -50,16 +50,84 @@ public class CatalogStore {
         var result = new LinkedHashMap<String, String>();
         result.put("catalog_id", rs.getString("id"));
         for (String field : FIELDS) result.put(field, rs.getString(field));
+        result.put("cleaned_at", Objects.toString(rs.getObject("cleaned_at"), ""));
+        result.put("cleanup_id", Objects.toString(rs.getString("cleanup_id"), ""));
+        result.put("replaced_by", Objects.toString(rs.getString("replaced_by"), ""));
         return result;
     }
 
     public List<Map<String, String>> all() {
-        return db.query("SELECT * FROM catalog_service ORDER BY created_at, id", (rs, n) -> row(rs));
+        return db.query("SELECT * FROM catalog_service WHERE replaced_by IS NULL ORDER BY created_at, id", (rs, n) -> row(rs));
     }
 
     public Map<String, String> get(String id) {
-        return db.query("SELECT * FROM catalog_service WHERE id=?", (rs, n) -> row(rs), id)
-                .stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Serviço não encontrado."));
+        var seen = new HashSet<String>();
+        while (seen.add(id)) {
+            var found = db.query("SELECT * FROM catalog_service WHERE id=?", (rs, n) -> row(rs), id);
+            if (found.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ServiÃ§o nÃ£o encontrado.");
+            var item = found.getFirst();
+            if (item.get("replaced_by").isBlank()) return item;
+            id = item.get("replaced_by");
+        }
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "VÃ­nculo circular no catÃ¡logo.");
+    }
+
+    public Map<String, Object> batchItem(String batch, String itemId) {
+        var found = db.queryForList("SELECT row_number FROM review_item WHERE batch_id=? AND id=?", batch, itemId);
+        if (found.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Linha nÃ£o encontrada.");
+        int row = ((Number) found.getFirst().get("row_number")).intValue();
+        return batchItems(batch, row - 1, 1).getFirst();
+    }
+
+    public Map<String, String> resolveExistingIfRevision(String batch, String item, String candidate, String expectedRevision, String expectedDictionaryRevision) {
+        return tx.execute(status -> {
+            lockCatalog();
+            if (!snapshot().revision().equals(expectedRevision))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "O catÃ¡logo mudou. Compare esta linha novamente.");
+            db.queryForObject("SELECT revision FROM abbreviation_state WHERE id=1 FOR UPDATE", Long.class);
+            String dictionaryRevision=db.queryForObject("SELECT dataset_key FROM abbreviation_state WHERE id=1",String.class)
+                    + ":" + db.queryForObject("SELECT revision FROM abbreviation_state WHERE id=1",Long.class);
+            if (!dictionaryRevision.equals(expectedDictionaryRevision))
+                throw new ResponseStatusException(HttpStatus.CONFLICT,"O dicionário mudou. Compare esta linha novamente.");
+            return resolve(batch, item, "EXISTING", candidate);
+        });
+    }
+
+    public boolean cleanupApplied(String id) {
+        return db.queryForObject("SELECT COUNT(*) FROM catalog_cleanup_run WHERE id=?", Integer.class, id) > 0;
+    }
+
+    public void applyCleanup(String id, String expectedRevision, String expectedDictionaryRevision, Map<String, String> representatives) {
+        tx.executeWithoutResult(status -> {
+            lockCatalog();
+            if (cleanupApplied(id)) return; // ConfirmaÃ§Ã£o repetida ou recuperaÃ§Ã£o apÃ³s falha na gravaÃ§Ã£o do arquivo.
+            var current = snapshot();
+            if (!current.revision().equals(expectedRevision))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "A base mudou durante a limpeza. Inicie uma nova cÃ³pia para incluir as alteraÃ§Ãµes.");
+            db.queryForObject("SELECT revision FROM abbreviation_state WHERE id=1 FOR UPDATE", Long.class);
+            String dictionaryRevision = db.queryForObject("SELECT dataset_key FROM abbreviation_state WHERE id=1", String.class)
+                    + ":" + db.queryForObject("SELECT revision FROM abbreviation_state WHERE id=1", Long.class);
+            if (!dictionaryRevision.equals(expectedDictionaryRevision))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "O dicionÃ¡rio mudou durante a limpeza. Inicie uma nova cÃ³pia.");
+            var ids = new HashSet<String>();
+            current.items().forEach(item -> ids.add(item.get("catalog_id")));
+            if (!ids.equals(representatives.keySet()) || representatives.values().stream()
+                    .anyMatch(target -> !ids.contains(target) || !target.equals(representatives.get(target))))
+                throw new IllegalArgumentException("A revisÃ£o estÃ¡ incompleta ou possui vÃ­nculos invÃ¡lidos.");
+            for (var entry : representatives.entrySet()) {
+                String target = entry.getKey().equals(entry.getValue()) ? null : entry.getValue();
+                db.update("UPDATE catalog_service SET cleaned_at=CURRENT_TIMESTAMP,cleanup_id=?,replaced_by=? WHERE id=?", id,target,entry.getKey());
+            }
+            // Preserva os registros originais e mantÃ©m decisÃµes antigas apontando ao representante atual.
+            for (var entry : representatives.entrySet()) {
+                if (!entry.getKey().equals(entry.getValue())) {
+                    db.update("UPDATE review_item SET service_id=? WHERE service_id=?",entry.getValue(),entry.getKey());
+                    db.update("UPDATE catalog_service SET replaced_by=? WHERE replaced_by=?",entry.getValue(),entry.getKey());
+                }
+            }
+            db.update("INSERT INTO catalog_cleanup_run(id,source_revision) VALUES (?,?)",id,expectedRevision);
+            db.update("UPDATE catalog_state SET revision=revision+1 WHERE id=1");
+        });
     }
 
     public record Snapshot(String revision, List<Map<String, String>> items) {}
@@ -80,16 +148,16 @@ public class CatalogStore {
 
     private Map<String, String> insert(Map<String, String> fields, String requestKey) {
         if (db.queryForObject("SELECT COUNT(*) FROM catalog_service", Long.class) >= 50_000)
-            throw new IllegalArgumentException("O índice atual suporta até 50.000 serviços no catálogo.");
+            throw new IllegalArgumentException("O Ã­ndice atual suporta atÃ© 50.000 serviÃ§os no catÃ¡logo.");
         if (fields.get("codigo_servico").isBlank()) {
-            // Identificador local do protótipo; não é um código emitido pelo SAP.
+            // Identificador local do protÃ³tipo; nÃ£o Ã© um cÃ³digo emitido pelo SAP.
             do {
                 long number = db.queryForObject("SELECT nextval('local_service_code')", Long.class);
                 fields.put("codigo_servico", "LOCAL-%08d".formatted(number));
             } while (!sameCode(fields).isEmpty());
         }
         if (!sameCode(fields).isEmpty()) throw new ResponseStatusException(HttpStatus.CONFLICT,
-                "Já existe um serviço com esse código e fornecedor. Selecione o existente.");
+                "JÃ¡ existe um serviÃ§o com esse cÃ³digo e fornecedor. Selecione o existente.");
         String id = UUID.randomUUID().toString();
         db.update("INSERT INTO catalog_service (id, grupo_servico, codigo_fornecedor, codigo_servico, descricao_item, unidade_medida, unidade_descricao, request_key) VALUES (?,?,?,?,?,?,?,?)",
                 id, fields.get("grupo_servico"), fields.get("codigo_fornecedor"), fields.get("codigo_servico"),
@@ -100,7 +168,7 @@ public class CatalogStore {
 
     public Map<String, String> create(Map<String, String> input, String requestKey) {
         var fields = validate(input, false);
-        if (requestKey == null) throw new IllegalArgumentException("Informe request_id para evitar cadastros duplicados em uma repetição.");
+        if (requestKey == null) throw new IllegalArgumentException("Informe request_id para evitar cadastros duplicados em uma repetiÃ§Ã£o.");
         UUID.fromString(requestKey);
         return tx.execute(status -> {
             lockCatalog();
@@ -109,15 +177,15 @@ public class CatalogStore {
                 var saved = previous.getFirst();
                 for (String field : FIELDS) {
                     if (field.equals("codigo_servico") && fields.get(field).isBlank()) continue;
-                    if (!fields.get(field).equals(saved.get(field))) throw new ResponseStatusException(HttpStatus.CONFLICT, "Esse request_id já foi usado com outros dados.");
+                    if (!fields.get(field).equals(saved.get(field))) throw new ResponseStatusException(HttpStatus.CONFLICT, "Esse request_id jÃ¡ foi usado com outros dados.");
                 }
-                return saved;
+                return get(saved.get("catalog_id"));
             }
             return insert(fields, requestKey);
         });
     }
 
-    // Carga de referência: acrescenta serviços, nunca substitui nem apaga o catálogo SQL.
+    // Carga de referÃªncia: acrescenta serviÃ§os, nunca substitui nem apaga o catÃ¡logo SQL.
     public Map<String, Object> importCatalog(List<Map<String, String>> incoming) {
         return importCatalog(incoming, "REFERENCE_XLSX");
     }
@@ -168,7 +236,7 @@ public class CatalogStore {
 
     public List<Map<String, Object>> batchItems(String batch, int after, int limit) {
         if (db.queryForObject("SELECT COUNT(*) FROM review_batch WHERE id=?", Integer.class, batch) == 0)
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lote não encontrado.");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lote nÃ£o encontrado.");
         return db.query("SELECT * FROM review_item WHERE batch_id=? AND row_number>? ORDER BY row_number LIMIT ?", (rs, n) -> {
             var item = new LinkedHashMap<String, Object>();
             item.put("id", rs.getString("id"));
@@ -182,17 +250,17 @@ public class CatalogStore {
     }
 
     public Map<String, String> resolve(String batch, String itemId, String action, String existingId) {
-        if (!Set.of("EXISTING", "CREATE").contains(Objects.toString(action, ""))) throw new IllegalArgumentException("Ação deve ser EXISTING ou CREATE.");
+        if (!Set.of("EXISTING", "CREATE").contains(Objects.toString(action, ""))) throw new IllegalArgumentException("AÃ§Ã£o deve ser EXISTING ou CREATE.");
         return tx.execute(status -> {
             lockCatalog();
             var found = db.queryForList("SELECT * FROM review_item WHERE id=? AND batch_id=? FOR UPDATE", itemId, batch);
-            if (found.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Linha não encontrada.");
+            if (found.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Linha nÃ£o encontrada.");
             var item = found.getFirst();
             String targetStatus = action.equals("CREATE") ? "CREATED" : "EXISTING";
             if (!"PENDING".equals(item.get("status"))) {
                 if (targetStatus.equals(item.get("status")) && (action.equals("CREATE") || Objects.equals(existingId, item.get("service_id"))))
                     return get(item.get("service_id").toString());
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta linha não está pendente ou já recebeu outra decisão.");
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta linha nÃ£o estÃ¡ pendente ou jÃ¡ recebeu outra decisÃ£o.");
             }
             Map<String, String> selected;
             if (action.equals("EXISTING")) selected = get(Objects.toString(existingId, ""));

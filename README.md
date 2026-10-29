@@ -394,3 +394,9 @@ textual. /status expõe ranking_strategy e activity_text_bonus.
 O índice textual é reconstruído em memória ao carregar/substituir o catálogo ou
 trocar o dicionário. Não há novo modelo, dependência ou reindexação de embeddings
 por causa deste ajuste. Reinicie o Python para ativar a nova ordenação.
+
+## Limpeza de dados
+
+Acesse **Limpeza de dados** no menu. A revisão usa uma cópia local persistente, compara somente com os registros já verificados e permite escolher qual equivalente manter. A base permanente só muda após concluir e confirmar **Usar como base permanente**. Veja [docs/LIMPEZA.md](docs/LIMPEZA.md) para armazenamento, retomada, marcações e regras do 100% semântico.
+
+No Docker, o novo volume `cleanup_data` guarda essas cópias. Na execução manual, configure `CLEANUP_DIRECTORY` ou use `data/cleanups`. Depois de atualizar, reconstrua Java e Python com `docker compose up -d --build`. Não remova os volumes.

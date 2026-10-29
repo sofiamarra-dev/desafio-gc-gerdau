@@ -51,6 +51,16 @@ class DictionaryPreviewRequest(DictionaryRequest):
     text: str = Field(min_length=1, max_length=300)
 
 
+class CompareItem(CatalogItem):
+    descricao_item: str = Field(min_length=1, max_length=300)
+
+
+class CompareRequest(BaseModel):
+    item: CompareItem
+    candidates: list[CompareItem] = Field(max_length=50_000)
+    dictionary: DictionaryRequest
+
+
 def description_preview(parts):
     return {'original': parts.original, 'activity': parts.activity,
             'qualifiers': list(parts.qualifier_texts), 'standardized': parts.standardized,
@@ -138,6 +148,15 @@ def create_app(embedder_factory=MiniLMEmbedder, data_dir=None):
                 return {'query': request.query, 'total': len(results), 'results': results,
                         'query_parts': description_preview(parts),
                         'mode': 'local', 'model': catalog.embedder.name}
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @api.post('/compare')
+    def compare(request: CompareRequest):
+        try:
+            return api.state.catalog.compare(
+                request.item.model_dump(), [row.model_dump() for row in request.candidates],
+                [entry.model_dump() for entry in request.dictionary.entries], request.dictionary.version)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 

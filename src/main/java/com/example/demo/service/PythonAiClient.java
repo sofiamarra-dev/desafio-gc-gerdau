@@ -45,6 +45,11 @@ public class PythonAiClient {
                 new HttpEntity<>(asJson(new SyncRequest(items, revision)), jsonHeaders()), JsonNode.class);
     }
 
+    public JsonNode compare(Map<String, String> item, List<Map<String, String>> candidates, AbbreviationStore.Snapshot dictionary) {
+        return rest.postForObject(baseUrl + "/compare", new HttpEntity<>(asJson(Map.of(
+                "item", item, "candidates", candidates, "dictionary", Map.of("version",dictionary.revision(),"entries",dictionary.entries()))), jsonHeaders()), JsonNode.class);
+    }
+
     public JsonNode catalog() {
         return rest.getForObject(baseUrl + "/catalog", JsonNode.class);
     }

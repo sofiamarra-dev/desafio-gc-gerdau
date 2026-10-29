@@ -31,7 +31,7 @@ services:
       - ai_data:/data
       - model_cache:/models
     healthcheck:
-      # Responder HTTP basta: o Java precisa iniciar para reconstruir um índice antigo.
+      # Responder HTTP basta: o Java precisa iniciar para reconstruir um Ã­ndice antigo.
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/status', timeout=5).read()"]
       interval: 10s
       timeout: 10s
@@ -50,8 +50,11 @@ services:
       DB_USER: ${DB_USER:-gerdau}
       DB_PASSWORD: ${DB_PASSWORD:-gerdau_local}
       PYTHON_AI_URL: http://ai:8001
+      CLEANUP_DIRECTORY: /data/cleanups
     ports:
       - "127.0.0.1:${JAVA_PORT:-8080}:8080"
+    volumes:
+      - cleanup_data:/data/cleanups
     depends_on:
       db:
         condition: service_healthy
@@ -69,3 +72,4 @@ volumes:
   postgres_data:
   ai_data:
   model_cache:
+  cleanup_data:

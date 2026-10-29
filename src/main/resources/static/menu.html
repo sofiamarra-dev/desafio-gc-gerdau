@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Catálogo de serviços</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="workflow.css"><script src="menu.js" defer></script></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Catálogo de serviços</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="workflow.css"><link rel="stylesheet" href="limpeza.css"><script src="menu.js" defer></script></head>
 <body class="menu-page">
 <header class="brand-header"><div class="container"><img class="brand-logo" src="gerdau-logo.png" alt="Gerdau"><span>Catálogo de serviços · protótipo</span></div></header>
 <main class="container">
   <div class="menu-intro"><h1>Encontre seus códigos aqui</h1><p>Pesquise, cadastre e revise solicitações em um único lugar.</p></div>
-  <nav class="menu-grid" aria-label="Menu principal">
+  <nav class="menu-grid cleanup-menu" aria-label="Menu principal">
     <a class="menu-card" href="index.html?modo=pesquisa"><span>01</span><h2>Pesquisa de código</h2><p>Encontre serviços existentes e descrições semelhantes.</p><strong>Pesquisar →</strong></a>
     <a class="menu-card" href="index.html?modo=unitario"><span>02</span><h2>Criação unitária</h2><p>Monte uma descrição, consulte similares e confirme um novo cadastro.</p><strong>Criar serviço →</strong></a>
     <a class="menu-card" href="massa.html"><span>03</span><h2>Criação em massa</h2><p>Envie solicitações em Excel ou texto e decida o destino de cada linha.</p><strong>Importar e revisar →</strong></a>
+    <a class="menu-card" href="limpeza.html"><span>04</span><h2>Limpeza de dados</h2><p>Revise os registros do banco em uma cópia e escolha quais manter.</p><strong>Limpar catálogo →</strong></a>
   </nav>
   <section class="card setup-card"><h2>Dicionário de siglas</h2><p>Organize significados e formas de escrita. Teste como uma descrição será separada na busca.</p><a class="btn btn-primary" href="siglas.html">Gerenciar siglas →</a></section>
   <section class="card setup-card"><h2>Catálogo de referência</h2><p id="database-state" aria-live="polite">Verificando banco…</p>

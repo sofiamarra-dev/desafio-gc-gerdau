@@ -5,7 +5,7 @@
 <header class="header"><div class="container"><h1>Criação em massa</h1><p>Revise cada solicitação antes de incluir um serviço.</p></div></header>
 <main class="container">
   <nav class="workflow-nav"><a href="menu.html">← Menu</a><a href="index.html?modo=unitario">Criação unitária</a><a href="/api/catalog/export">Exportar catálogo</a></nav>
-  <section class="card"><h2>Enviar solicitações</h2><p>O envio cria um lote pendente. Nenhum serviço é cadastrado automaticamente e a base atual é preservada.</p>
+  <section class="card"><h2>Enviar solicitações</h2><p>O envio cria um lote pendente. Ao revisar, correspondências de 100% pelos embeddings reutilizam automaticamente o serviço existente, sem criar outro cadastro. O indicador “contem” não aciona essa regra.</p>
     <div class="batch-source" role="group" aria-label="Como enviar solicitações">
       <button type="button" class="btn btn-primary" id="source-excel" aria-pressed="true" aria-controls="excel-panel">Planilha Excel</button>
       <button type="button" class="btn" id="source-text" aria-pressed="false" aria-controls="text-panel">Colar texto</button>
@@ -33,6 +33,8 @@
   <section class="card" id="review-section" hidden>
     <div class="results-header"><h2>Revisar solicitação</h2><a id="batch-export" href="#">Baixar resultado do lote</a></div>
     <p id="batch-progress"></p>
+    <p id="batch-auto-summary" role="status" aria-live="polite"></p>
+    <div class="workflow-actions"><button class="btn" id="pause-automatic" type="button" hidden>Pausar avanço automático</button><button class="btn" id="resume-automatic" type="button" hidden>Retomar revisão</button></div>
     <div class="review-layout">
       <div class="request-card"><h3 id="request-title"></h3>
         <span class="review-label" id="request-original-label" hidden>Descrição original</span><p id="request-description"></p><p id="request-context" class="request-context"></p>

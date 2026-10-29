@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Limpeza de dados</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="workflow.css"><link rel="stylesheet" href="limpeza.css"><script src="limpeza.js" defer></script></head>
+<body>
+<header class="header"><div class="container"><h1>Limpeza de dados</h1><p>Revise o catálogo em uma cópia antes de atualizar a base permanente.</p></div></header>
+<main class="container cleanup-page">
+  <nav class="workflow-nav"><a href="menu.html">← Menu</a><a href="massa.html">Criação em massa</a><a href="/api/catalog/export">Exportar catálogo atual</a></nav>
+  <section class="card">
+    <h2>Preparar uma limpeza</h2>
+    <p>Uma cópia local guarda os dados e suas decisões. As pesquisas continuam usando a base permanente até você confirmar a aplicação da limpeza.</p>
+    <label class="cleanup-check"><input id="skip-verified" type="checkbox" checked> Ignorar registros já verificados</label>
+    <p class="cleanup-muted">Os registros mantidos em limpezas anteriores entram como referência. Desmarque para revisar todos novamente.</p>
+    <button class="btn btn-primary" id="start-cleanup" type="button">Criar cópia e iniciar</button>
+  </section>
+  <section class="card"><div class="results-header"><h2>Limpezas salvas</h2><button class="btn" id="refresh-cleanups" type="button">Atualizar lista</button></div><p class="cleanup-muted">Você pode fechar esta página e retomar uma cópia depois.</p><ul id="cleanup-list" class="batch-list"></ul></section>
+  <div id="cleanup-notice" class="notice" role="status" aria-live="polite"></div>
+  <section class="card" id="cleanup-section" hidden>
+    <div class="results-header"><h2 id="cleanup-title">Revisão da cópia</h2><span id="cleanup-status" class="cleanup-badge"></span></div>
+    <p id="cleanup-date" class="cleanup-muted"></p>
+    <div class="cleanup-counts" aria-label="Progresso da limpeza"><div><strong id="count-total">0</strong><span>Na cópia</span></div><div><strong id="count-pending">0</strong><span>Pendentes</span></div><div><strong id="count-verified">0</strong><span>Mantidos</span></div><div><strong id="count-replaced">0</strong><span>Substituídos</span></div></div>
+    <progress id="cleanup-progress" value="0" max="1" aria-label="Registros analisados"></progress>
+    <p id="cleanup-step" role="status"></p>
+    <div class="workflow-actions"><button class="btn btn-primary" id="continue-cleanup" type="button">Continuar revisão</button><button class="btn" id="pause-cleanup" type="button" hidden>Pausar após este registro</button></div>
+    <div id="cleanup-review" hidden>
+      <div class="cleanup-current request-card"><span class="review-label">Registro em análise</span><h3 id="current-description"></h3><dl id="current-fields" class="cleanup-fields"></dl></div>
+      <div class="cleanup-matches">
+      <div class="results-header"><h3>Compare com os já verificados</h3><span class="cleanup-muted">Apenas a similaridade dos embeddings é exibida.</span></div>
+      <p>Se representam o mesmo serviço, escolha qual registro deve permanecer na cópia. Se forem diferentes, mantenha o registro em análise como outro serviço.</p>
+      <div id="cleanup-candidates" class="cleanup-candidates"></div>
+      <button class="btn" id="keep-distinct" type="button">São serviços diferentes — manter como distinto</button>
+      </div>
+    </div>
+    <div id="cleanup-summary" class="cleanup-summary" hidden><h3 id="summary-title">Cópia revisada</h3><p id="summary-text"></p><p id="apply-help">A base permanente será atualizada com os registros mantidos e os vínculos das substituições. Os registros originais terão seu histórico preservado. Se o catálogo mudou durante a revisão, será necessário iniciar uma nova cópia.</p><button class="btn btn-primary" id="apply-cleanup" type="button">Usar como base permanente</button></div>
+    <details class="cleanup-log"><summary>Decisões automáticas nesta sessão</summary><p class="cleanup-muted">100% pelos embeddings reutiliza o registro já verificado. O indicador “contém” não participa dessa decisão. O progresso também é salvo na cópia.</p><ul id="automatic-log"></ul></details>
+  </section>
+</main></body></html>

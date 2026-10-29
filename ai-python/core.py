@@ -11,6 +11,7 @@ import numpy as np
 from .embedder import normalized, unit_vector
 from .activity_ranking import ActivityRanking, terms
 from .abbreviations import INITIAL_DICTIONARY, prepare_dictionary, SPLITTER_VERSION
+from .comparison import ScopedComparison
 
 
 FIELDS = ['grupo_servico', 'codigo_fornecedor', 'codigo_servico', 'descricao_item', 'unidade_medida', 'unidade_descricao', 'catalog_id']
@@ -60,6 +61,7 @@ class Catalog:
         self.description_weight = float(description_weight)
         self.context_weight = float(context_weight)
         self.embedder = embedder
+        self._comparison = ScopedComparison(embedder)
         self.data_dir = data_dir
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.items: list[dict] = []
@@ -228,6 +230,16 @@ class Catalog:
                 raise ValueError('O modelo retornou vetores inválidos.')
             cache.update(zip(missing, encoded))
         return np.stack([cache[text] for text in texts])
+
+    @locked
+    def compare(self, item, candidates, dictionary_entries, dictionary_version):
+        # Vetores já válidos podem aquecer o cache, mas nenhuma alteração na
+        # cópia precisa substituir o índice ou dicionário da busca permanente.
+        if not self.requires_reindex:
+            self._comparison.seed([self._description_text(row) for row in self.items], self.description_vectors)
+            self._comparison.seed([self._context_text(row) for row in self.items], self.context_vectors)
+        return self._comparison.compare(item, candidates, dictionary_entries, dictionary_version,
+                                        self.description_weight, self.context_weight)
 
     @locked
     def search(self, query: str, limit: int = 20) -> list[dict]: #metodo que retorna a lista dos mais proximos

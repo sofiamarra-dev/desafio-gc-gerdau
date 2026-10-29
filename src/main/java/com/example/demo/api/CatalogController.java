@@ -21,9 +21,10 @@ public class CatalogController {
     private final LeitorDePlanilha parser;
     private final TextoDeSolicitacoes textParser;
     private final ObjectMapper json;
+    private final BulkSemanticReview bulkReview;
 
-    public CatalogController(CatalogStore store, CatalogSearch search, PythonAiClient python, LeitorDePlanilha parser, TextoDeSolicitacoes textParser, ObjectMapper json) {
-        this.store = store; this.search = search; this.python = python; this.parser = parser; this.json = json; this.textParser = textParser;
+    public CatalogController(CatalogStore store, CatalogSearch search, PythonAiClient python, LeitorDePlanilha parser, TextoDeSolicitacoes textParser, ObjectMapper json, BulkSemanticReview bulkReview) {
+        this.store = store; this.search = search; this.python = python; this.parser = parser; this.json = json; this.textParser = textParser; this.bulkReview = bulkReview;
     }
 
     @GetMapping("/status")
@@ -92,8 +93,20 @@ public class CatalogController {
 
     public record Decision(String action, String service_id) {}
 
+    @PostMapping("/batches/{batch}/items/{item}/auto-match")
+    public Map<String, Object> autoMatch(@PathVariable String batch, @PathVariable String item) {
+        return bulkReview.match(batch, item);
+    }
+
     @PostMapping("/batches/{batch}/items/{item}/decision")
     public Map<String, String> decide(@PathVariable String batch, @PathVariable String item, @RequestBody Decision decision) {
+        if ("CREATE".equals(decision.action())) {
+            var match = bulkReview.match(batch, item);
+            if (Boolean.TRUE.equals(match.get("resolved"))) {
+                @SuppressWarnings("unchecked") var service = (Map<String, String>) match.get("service");
+                return service;
+            }
+        }
         return store.resolve(batch, item, decision.action(), decision.service_id());
     }
 
