@@ -13,6 +13,37 @@ import java.util.*;
 public class LeitorDePlanilha {
 
     public record ParsedSheet(List<Map<String, String>> items, String sheet, int skippedRows) {}
+    public record RequestRow(int rowNumber, Map<String, String> fields) {}
+    public record ParsedRequests(String sheet, List<RequestRow> rows) {}
+
+    // A planilha de solicitações aceita código vazio e conserva linhas inválidas para revisão.
+    public ParsedRequests parseRequests(MultipartFile file) throws IOException {
+        String name = Optional.ofNullable(file.getOriginalFilename()).orElse("");
+        if (file.isEmpty() || !name.toLowerCase(Locale.ROOT).endsWith(".xlsx"))
+            throw new IllegalArgumentException("Selecione uma planilha XLSX não vazia.");
+        try (InputStream input = file.getInputStream(); Workbook workbook = WorkbookFactory.create(input)) {
+            Map<String, String> units = readUnidadesDeMedida(workbook);
+            for (Sheet sheet : workbook) {
+                Header header = findHeader(sheet, true);
+                if (header == null) continue;
+                var rows = new ArrayList<RequestRow>();
+                for (int i = header.row + 1; i <= sheet.getLastRowNum(); i++) {
+                    Row row = sheet.getRow(i);
+                    if (row == null) continue;
+                    var fields = new LinkedHashMap<String, String>();
+                    for (var column : header.columns.entrySet()) fields.put(column.getKey(), text(row.getCell(column.getValue())));
+                    if (fields.values().stream().allMatch(String::isBlank)) continue;
+                    String unit = fields.getOrDefault("unidade_medida", "").toUpperCase(Locale.ROOT);
+                    if (fields.getOrDefault("unidade_descricao", "").isBlank()) fields.put("unidade_descricao", units.getOrDefault(unit, unit));
+                    rows.add(new RequestRow(i + 1, fields));
+                    if (rows.size() > 50_000) throw new IllegalArgumentException("Máximo de 50.000 solicitações por lote.");
+                }
+                if (rows.isEmpty()) throw new IllegalArgumentException("A planilha não contém solicitações.");
+                return new ParsedRequests(sheet.getSheetName(), rows);
+            }
+            throw new IllegalArgumentException("Inclua a coluna Descrição do Item na planilha.");
+        }
+    }
 
     public ParsedSheet parse(MultipartFile file) throws IOException {
         String filename = Optional.ofNullable(file.getOriginalFilename()).orElse("");
@@ -47,7 +78,7 @@ public class LeitorDePlanilha {
                     String desc = item.getOrDefault("descricao_item", "");
                     if (code.isBlank() || desc.isBlank()) { linhasPuladas++; continue; }
                     String unit = item.getOrDefault("unidade_medida", "").toUpperCase(Locale.ROOT);
-                    item.put("unidade_descricao", units.getOrDefault(unit, unit));
+                    if (item.getOrDefault("unidade_descricao", "").isBlank()) item.put("unidade_descricao", units.getOrDefault(unit, unit));
                     items.add(item);
                     if (items.size() > 50000) {
                         throw new IllegalArgumentException("Amostra grande demais para o protótipo: máximo de 50.000 linhas.");
@@ -66,6 +97,10 @@ public class LeitorDePlanilha {
     private record Header(int row, Map<String, Integer> columns) {}
 
     private Header findHeader(Sheet sheet) {
+        return findHeader(sheet, false);
+    }
+
+    private Header findHeader(Sheet sheet, boolean requests) {
 
         int end = Math.min(16, sheet.getLastRowNum());
 
@@ -83,10 +118,11 @@ public class LeitorDePlanilha {
                     case "codigo do servico", "codigo de servico" -> found.put("codigo_servico", cell.getColumnIndex());
                     case "descricao do item", "nome do servico", "descricao do servico" -> found.put("descricao_item", cell.getColumnIndex());
                     case "unidade de medida", "unidade medida" -> found.put("unidade_medida", cell.getColumnIndex());
+                    case "descricao da unidade", "descricao unidade" -> found.put("unidade_descricao", cell.getColumnIndex());
                     default -> { }
                 }
             }
-            if (found.keySet().containsAll(Set.of("grupo_servico", "codigo_fornecedor", "codigo_servico", "descricao_item", "unidade_medida"))) {
+            if ((requests && found.containsKey("descricao_item")) || found.keySet().containsAll(Set.of("grupo_servico", "codigo_fornecedor", "codigo_servico", "descricao_item", "unidade_medida"))) {
                 return new Header(i, found);
             }
         }

@@ -33,7 +33,7 @@ function leitorDeFormulario(){
     }
 
     if ($('horaNoturna').checked){
-        codigo += " HNOT"
+        codigo += " NOT"
     }
 
     if ($('horaNormal').checked){
@@ -86,7 +86,7 @@ function leitorDeFormulario(){
 
     $('characterCount').style.color = numeroDeCaracteresLivres == 0 ? 'red' : 'green';
 
-    $('campoLive').maxLength = numeroDeCaracteresLivres;
+    $('campoLivre').maxLength = Math.max(0, 40 - (codigo.length - $('campoLivre').value.length));
 
 }
 
@@ -148,9 +148,10 @@ async function apiJson(path, options = {}) {
 
 async function refreshStatus() { // aqui pega o status da API e muda o front apartir dele
     try {
-        const state = await apiJson('/api/status');
+    const state = await apiJson('/api/status');
+    const database = await apiJson('/api/catalog/status');
 
-        $('catalog-count').textContent = Number(state.size).toLocaleString('pt-BR');
+        $('catalog-count').textContent = Number(database.size).toLocaleString('pt-BR');
 
         const isDemo = state.mode === 'demo';
 
@@ -239,7 +240,8 @@ function renderResults(results) {
         const bar = createCell('', 'bar');
         const fill = document.createElement('i');
 
-        const percent = Math.max(
+        const containsQueryWords = item.correspondencia_palavras === true;
+        const percent = containsQueryWords ? 100 : Math.max(
             0,
             Math.min(100, Number(item.similaridade) * 100)
         );
@@ -251,11 +253,13 @@ function renderResults(results) {
         const score = document.createElement('strong');
 
         score.textContent =
-            `${percent.toFixed(1).replace('.', ',')}%`;
+            containsQueryWords ? 'contem' : `${percent.toFixed(1).replace('.', ',')}%`;
 
-        score.title = item.correspondencia_exata
-            ? 'Código ou descrição idênticos'
-            : 'Similaridade vetorial (não é probabilidade)';
+        score.title = containsQueryWords
+            ? 'A descrição contém todas as palavras da consulta, ignorando acentos'
+            : item.correspondencia_exata
+                ? 'Código ou descrição idênticos'
+                : 'Similaridade vetorial (não é probabilidade)';
 
         outer.append(bar, score);
         affinity.appendChild(outer);
@@ -319,7 +323,7 @@ $('upload-form').addEventListener('submit', async (event) => { // sempre que é 
         });
 
         showNotice(
-            `Importados ${data.imported.toLocaleString('pt-BR')} serviços da aba “${data.sheet}”. ${data.skipped} linhas ignoradas.`,
+            `Adicionados ${data.imported.toLocaleString('pt-BR')} serviços da aba “${data.sheet}”. ${data.existing} já existiam; ${data.skipped} linhas ignoradas. O índice será sincronizado na próxima busca.`,
             'success'
         );
 
@@ -440,4 +444,36 @@ dropzone.addEventListener('drop', (event) => {
 });
 
 
+const screenMode = new URLSearchParams(location.search).get('modo') || 'unitario';
+$('reference-import').hidden = screenMode !== 'base';
+$('unit-generator').hidden = screenMode !== 'unitario';
+$('add-code-button').hidden = screenMode !== 'unitario';
+$('add-code-help').hidden = screenMode !== 'unitario';
+if (screenMode === 'pesquisa') {
+    document.querySelector('label[for="search-input"]').textContent = 'Código ou descrição para pesquisar';
+    $('search-input').placeholder = 'Descreva o serviço que procura';
+}
+let saveRequestId = crypto.randomUUID();
+let saveRequestBody = null;
+$('add-code-button').addEventListener('click', async () => {
+    const button = $('add-code-button');
+    const fields = {
+        codigo_servico: $('new-service-code').value.trim(),
+        codigo_fornecedor: $('new-supplier').value.trim(),
+        descricao_item: $('search-input').value.trim(),
+        grupo_servico: $('new-group').value.trim(),
+        unidade_medida: $('campoMedida').value.trim(), unidade_descricao: ''
+    };
+    if (!fields.descricao_item) return showNotice('Preencha a descrição antes de cadastrar.', 'error');
+    if (!confirm('Confirmar novo serviço? Verifique os similares antes de continuar.')) return;
+    const serialized = JSON.stringify(fields);
+    if (saveRequestBody !== serialized) { saveRequestId = crypto.randomUUID(); saveRequestBody = serialized; }
+    button.disabled = true;
+    try {
+        const saved = await apiJson('/api/catalog/services', {method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({...fields, request_id: saveRequestId})});
+        showNotice(`Serviço ${saved.codigo_servico} salvo no banco. O Excel atualizado está disponível em Exportar catálogo.`, 'success');
+        await refreshStatus();
+    } catch (error) { showNotice(error.message, 'error'); }
+    finally { button.disabled = false; }
+});
 refreshStatus();

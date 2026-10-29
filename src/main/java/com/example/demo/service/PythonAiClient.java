@@ -22,6 +22,7 @@ public class PythonAiClient {
 
     private record IndexRequest(List<Map<String, String>> items) {}
     private record SearchRequest(String query, int limit) {}
+    private record SyncRequest(List<Map<String, String>> items, String revision) {}
 
     public PythonAiClient(@Value("${python.ai.url}") String url, ObjectMapper objectMapper) {
         baseUrl = url.replaceAll("/+$", "");
@@ -39,8 +40,28 @@ public class PythonAiClient {
                 new HttpEntity<>(asJson(new SearchRequest(query, 20)), jsonHeaders()), JsonNode.class);
     }
 
+    public JsonNode sync(List<Map<String, String>> items, String revision) {
+        return rest.postForObject(baseUrl + "/sync",
+                new HttpEntity<>(asJson(new SyncRequest(items, revision)), jsonHeaders()), JsonNode.class);
+    }
+
+    public JsonNode catalog() {
+        return rest.getForObject(baseUrl + "/catalog", JsonNode.class);
+    }
+
     public JsonNode status() {
         return rest.getForObject(baseUrl + "/status", JsonNode.class);
+    }
+
+    public JsonNode dictionary(AbbreviationStore.Snapshot snapshot) {
+        return rest.exchange(baseUrl + "/dictionary", org.springframework.http.HttpMethod.PUT,
+                new HttpEntity<>(asJson(Map.of("version", snapshot.revision(), "entries", snapshot.entries())), jsonHeaders()),
+                JsonNode.class).getBody();
+    }
+
+    public JsonNode previewDictionary(AbbreviationStore.Snapshot snapshot, String text) {
+        return rest.postForObject(baseUrl + "/dictionary/preview", new HttpEntity<>(asJson(
+                Map.of("version", snapshot.revision(), "entries", snapshot.entries(), "text", text)), jsonHeaders()), JsonNode.class);
     }
 
     private String asJson(Object request) {

@@ -8,9 +8,11 @@ from pydantic import BaseModel, Field
 
 from .core import Catalog
 from .embedder import MiniLMEmbedder
+from .abbreviations import prepare_dictionary
 
 
 class CatalogItem(BaseModel):
+    catalog_id: str = ''
     grupo_servico: str = ''
     codigo_fornecedor: str = ''
     codigo_servico: str = ''
@@ -28,6 +30,33 @@ class SearchRequest(BaseModel):
     limit: int = Field(default=20, ge=1, le=20)
 
 
+class SyncRequest(BaseModel):
+    items: list[CatalogItem] = Field(max_length=50_000)
+    revision: str = Field(min_length=1, max_length=100)
+
+
+class DictionaryEntry(BaseModel):
+    code: str = Field(min_length=1, max_length=16, pattern=r'^[A-Za-z0-9]+$')
+    meaning: str = Field(min_length=1, max_length=80)
+    variants: list[str] = Field(default_factory=list, max_length=100)
+    active: bool = True
+
+
+class DictionaryRequest(BaseModel):
+    version: str = Field(min_length=1, max_length=100)
+    entries: list[DictionaryEntry] = Field(max_length=1000)
+
+
+class DictionaryPreviewRequest(DictionaryRequest):
+    text: str = Field(min_length=1, max_length=300)
+
+
+def description_preview(parts):
+    return {'original': parts.original, 'activity': parts.activity,
+            'qualifiers': list(parts.qualifier_texts), 'standardized': parts.standardized,
+            'needs_review': parts.needs_review, 'dictionary_version': parts.dictionary_version}
+
+
 def create_app(embedder_factory=MiniLMEmbedder, data_dir=None):
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -43,27 +72,74 @@ def create_app(embedder_factory=MiniLMEmbedder, data_dir=None):
     def status():
         catalog = api.state.catalog
         with catalog.lock:
-            return {'ready': True, 'mode': 'local', 'model': catalog.embedder.name,
+            return {'ready': not catalog.requires_reindex, 'mode': 'local', 'model': catalog.embedder.name,
                     'size': len(catalog.items), 'requires_reindex': catalog.requires_reindex,
-                    'weights': {'description': catalog.description_weight,
-                                'context': catalog.context_weight}}
+                    'revision': catalog.revision,
+                    'dictionary_version': catalog.dictionary.version,
+                    'search_strategy': 'activity_qualifiers',
+                    'ranking_strategy': 'semantic_plus_activity_words',
+                    'activity_text_bonus': catalog.activity_text_bonus,
+                    'weights': {'activity': catalog.description_weight,
+                                'qualifiers': catalog.context_weight}}
 
     @api.post('/index')
     def index(request: IndexRequest):
         try:
-            count = api.state.catalog.replace([item.model_dump() for item in request.items])
+            with api.state.catalog.lock:
+                count = api.state.catalog.replace([item.model_dump() for item in request.items])
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {'imported': count, 'mode': 'local', 'model': api.state.catalog.embedder.name}
 
-    @api.post('/search')
-    def search(request: SearchRequest):
+    @api.put('/dictionary')
+    def update_dictionary(request: DictionaryRequest):
+        catalog = api.state.catalog
         try:
-            results = api.state.catalog.search(request.query, request.limit)
+            with catalog.lock:
+                catalog.update_dictionary([entry.model_dump() for entry in request.entries], request.version)
+                return {'dictionary_version': catalog.dictionary.version,
+                        'requires_reindex': catalog.requires_reindex}
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        return {'query': request.query, 'total': len(results), 'results': results,
-                'mode': 'local', 'model': api.state.catalog.embedder.name}
+
+    @api.post('/dictionary/preview')
+    def preview_dictionary(request: DictionaryPreviewRequest):
+        try:
+            dictionary, _, _ = prepare_dictionary([entry.model_dump() for entry in request.entries], request.version)
+            parts = dictionary.split(request.text)
+            return description_preview(parts)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @api.get('/catalog')
+    def export_catalog():
+        # Migração explícita da base antiga; o Java decide quando gravá-la no PostgreSQL.
+        with api.state.catalog.lock:
+            return {'items': list(api.state.catalog.items)}
+
+    @api.post('/sync')
+    def sync(request: SyncRequest):
+        try:
+            with api.state.catalog.lock:
+                count = api.state.catalog.replace([item.model_dump() for item in request.items],
+                                                 revision=request.revision, allow_empty=True)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {'imported': count, 'revision': request.revision}
+
+    @api.post('/search')
+    def search(request: SearchRequest):
+        catalog = api.state.catalog
+        try:
+            # A explicação e os resultados usam a mesma versão do dicionário.
+            with catalog.lock:
+                results = catalog.search(request.query, request.limit)
+                parts = catalog.dictionary.split(request.query)
+                return {'query': request.query, 'total': len(results), 'results': results,
+                        'query_parts': description_preview(parts),
+                        'mode': 'local', 'model': catalog.embedder.name}
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     return api
 

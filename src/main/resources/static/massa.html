@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Criação em massa</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="workflow.css"><script src="massa.js" defer></script></head>
+<body>
+<header class="header"><div class="container"><h1>Criação em massa</h1><p>Revise cada solicitação antes de incluir um serviço.</p></div></header>
+<main class="container">
+  <nav class="workflow-nav"><a href="menu.html">← Menu</a><a href="index.html?modo=unitario">Criação unitária</a><a href="/api/catalog/export">Exportar catálogo</a></nav>
+  <section class="card"><h2>Enviar solicitações</h2><p>O envio cria um lote pendente. Nenhum serviço é cadastrado automaticamente e a base atual é preservada.</p>
+    <div class="batch-source" role="group" aria-label="Como enviar solicitações">
+      <button type="button" class="btn btn-primary" id="source-excel" aria-pressed="true" aria-controls="excel-panel">Planilha Excel</button>
+      <button type="button" class="btn" id="source-text" aria-pressed="false" aria-controls="text-panel">Colar texto</button>
+    </div>
+    <div id="excel-panel">
+      <div class="workflow-actions"><a class="btn btn-primary" id="batch-template-download" href="/api/catalog/batches/template" download="modelo-solicitacoes.xlsx">Baixar planilha modelo</a></div>
+      <p>Preencha o modelo a partir da linha 2 e mantenha os nomes das colunas. A planilha vem vazia, pronta para suas solicitações.</p>
+      <p>Coluna obrigatória: <strong>Descrição do Item</strong>. Opcionais: Grupo de Serviço, Código do Fornecedor, Código do Serviço, Unidade de medida e Descrição da Unidade. Deixe o código vazio para gerar um identificador LOCAL ao confirmar.</p>
+      <form id="batch-upload"><label for="batch-file">Planilha de solicitações (.xlsx)</label><input id="batch-file" type="file" accept=".xlsx" required><button class="btn btn-primary" id="batch-upload-button">Enviar planilha</button></form>
+    </div>
+    <div id="text-panel" hidden>
+      <p>Uma solicitação por linha, <strong>sem cabeçalho</strong>. Separe os campos com <strong>;</strong> nesta ordem:</p>
+      <p class="text-order">Descrição do Item; Grupo de Serviço; Código do Fornecedor; Código do Serviço; Unidade de medida; Descrição da Unidade</p>
+      <p>Somente a descrição é obrigatória. Os demais campos podem ficar vazios; mantenha os separadores para pular um campo. Você também pode colar apenas uma descrição por linha.</p>
+      <form id="batch-text-form">
+        <label for="batch-text">Solicitações para revisar</label>
+        <textarea id="batch-text" rows="7" maxlength="2000000" required aria-describedby="batch-text-help" placeholder="SV PINTOR HE 50%;Manutenção;0012;;H;hora&#10;Manutenção de motor"></textarea>
+        <p id="batch-text-help">Até 50.000 solicitações e 2 milhões de caracteres. Para incluir ; em um campo, envolva-o em aspas duplas. Um código vazio gera um identificador LOCAL somente após sua confirmação.</p>
+        <button class="btn btn-primary" id="batch-text-button">Enviar texto para revisão</button>
+      </form>
+    </div>
+  </section>
+  <section class="card"><h2>Retomar um lote</h2><ul class="batch-list" id="batch-list"></ul></section>
+  <div id="batch-notice" class="notice" role="status" aria-live="polite"></div>
+  <section class="card" id="review-section" hidden>
+    <div class="results-header"><h2>Revisar solicitação</h2><a id="batch-export" href="#">Baixar resultado do lote</a></div>
+    <p id="batch-progress"></p>
+    <div class="review-layout">
+      <div class="request-card"><h3 id="request-title"></h3>
+        <span class="review-label" id="request-original-label" hidden>Descrição original</span><p id="request-description"></p><p id="request-context" class="request-context"></p>
+        <p id="request-separation-status" class="separation-status" role="status" hidden></p>
+        <div id="request-separation" class="request-separation" aria-label="Separação usada na busca" hidden>
+          <dl>
+            <div><dt>Descrição padronizada</dt><dd id="request-standardized"></dd></div>
+            <div><dt>Atividade principal</dt><dd id="request-activity"></dd></div>
+            <div><dt>Qualificadores</dt><dd id="request-qualifiers" class="qualifier-list"></dd></div>
+          </dl>
+          <p id="request-separation-warning" class="separation-warning" role="status" hidden>Nenhuma atividade principal foi identificada. Confira a descrição original antes de criar um código. Se precisar corrigir o texto, ajuste a origem e envie um novo lote.</p>
+          <p class="separation-note">O cadastro mantém a descrição original. A padronização orienta a busca.</p>
+        </div>
+        <div class="separation-tools" id="request-analysis-tools" hidden><button class="btn" id="retry-request" type="button">Atualizar análise</button><a href="siglas.html" target="_blank" rel="noopener">Gerenciar siglas ↗</a></div>
+        <div class="workflow-actions"><button class="btn btn-primary" id="create-request" type="button">Confirmar novo cadastro</button><button class="btn" id="next-request" type="button">Revisar depois</button></div>
+      </div>
+      <div><h3>Serviços semelhantes</h3><p>Selecione um existente para reutilizá-lo. A similaridade é uma sugestão; a decisão é sua.</p>
+        <div class="table-wrapper"><table><thead><tr><th>Serviço</th><th>Fornecedor / unidade</th><th>Correspondência</th><th>Decisão</th></tr></thead><tbody id="batch-results"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+</main></body></html>

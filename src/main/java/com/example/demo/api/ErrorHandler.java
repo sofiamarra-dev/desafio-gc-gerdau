@@ -13,6 +13,16 @@ import java.util.Map;
 @RestControllerAdvice
 public class ErrorHandler {
 
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> applicationError(org.springframework.web.server.ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(Map.of("error", java.util.Objects.toString(e.getReason(), "Requisição inválida.")));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<Map<String, String>> databaseError() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", "Não foi possível acessar o banco. Verifique se o PostgreSQL está ativo; tente novamente com o mesmo pedido."));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

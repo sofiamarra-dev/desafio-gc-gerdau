@@ -1,0 +1,7 @@
+# Versões já usadas e testadas no projeto; PyTorch CPU é instalado no Dockerfile.
+fastapi==0.143.2
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+numpy==2.4.6
+sentence-transformers==5.7.0
+transformers==5.19.0

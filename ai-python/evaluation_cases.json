@@ -1,0 +1,544 @@
+{
+  "schema_version": 1,
+  "purpose": "Controles técnicos e hipóteses para revisão humana; candidatos não são gabaritos aprovados.",
+  "cases": [
+    {
+      "id": "codigo-4096367",
+      "kind": "control",
+      "category": "Código exato",
+      "query": "4096367",
+      "expected_codes": [
+        "4096367"
+      ],
+      "target_basis": "Consulta direta por código; controle técnico, não prova de qualidade semântica.",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "codigo-4077086",
+      "kind": "control",
+      "category": "Código exato",
+      "query": "4077086",
+      "expected_codes": [
+        "4077086"
+      ],
+      "target_basis": "Consulta direta por código; controle técnico, não prova de qualidade semântica.",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "codigo-4068073",
+      "kind": "control",
+      "category": "Código exato",
+      "query": "4068073",
+      "expected_codes": [
+        "4068073"
+      ],
+      "target_basis": "Consulta direta por código; controle técnico, não prova de qualidade semântica.",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "descricao-4096367",
+      "kind": "control",
+      "category": "Descrição exata",
+      "query": "PINTOR - HORA EXTRA 50%",
+      "expected_description": "PINTOR - HORA EXTRA 50%",
+      "target_basis": "Mesma descrição normalizada; aceita todos os fornecedores e códigos com esse texto.",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "descricao-4077086",
+      "kind": "control",
+      "category": "Descrição exata",
+      "query": "SV Frutas Avulsas  - maçã - unidade",
+      "expected_description": "SV Frutas Avulsas  - maçã - unidade",
+      "target_basis": "Mesma descrição normalizada; aceita todos os fornecedores e códigos com esse texto.",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "descricao-4121049",
+      "kind": "control",
+      "category": "Descrição exata",
+      "query": "Roçadeira",
+      "expected_description": "Roçadeira",
+      "target_basis": "Mesma descrição normalizada; aceita todos os fornecedores e códigos com esse texto.",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "acento-4077086",
+      "kind": "control",
+      "category": "Acentos e caixa",
+      "query": "sv frutas avulsas  - maca - unidade",
+      "expected_description": "SV Frutas Avulsas  - maçã - unidade",
+      "target_basis": "Mesma descrição sem acentos/caixa; controle da normalização lexical.",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "acento-4121049",
+      "kind": "control",
+      "category": "Acentos e caixa",
+      "query": "rocadeira",
+      "expected_description": "Roçadeira",
+      "target_basis": "Mesma descrição sem acentos/caixa; controle da normalização lexical.",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "acento-4027771",
+      "kind": "control",
+      "category": "Acentos e caixa",
+      "query": "sv-pintura de piso com tinta epoxi a bas",
+      "expected_description": "SV-PINTURA DE PISO COM TINTA EPOXI A BAS",
+      "target_basis": "Mesma descrição sem acentos/caixa; controle da normalização lexical.",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "maca-1",
+      "kind": "human",
+      "category": "Erros curtos",
+      "query": "maça",
+      "candidate_codes": [
+        "4077086"
+      ],
+      "target_basis": "Intenção da demonstração: fruta maçã. A consulta isolada é ambígua.",
+      "group": "fruta",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4077086",
+          "description": "SV Frutas Avulsas  - maçã - unidade"
+        }
+      ]
+    },
+    {
+      "id": "maca-2",
+      "kind": "human",
+      "category": "Erros curtos",
+      "query": "maca",
+      "candidate_codes": [
+        "4077086"
+      ],
+      "target_basis": "Intenção: fruta maçã, não equipamento de transporte.",
+      "group": "fruta",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4077086",
+          "description": "SV Frutas Avulsas  - maçã - unidade"
+        }
+      ]
+    },
+    {
+      "id": "binoclo",
+      "kind": "human",
+      "category": "Erros curtos",
+      "query": "binoclo",
+      "candidate_codes": [
+        "4068073",
+        "4068026",
+        "4068038"
+      ],
+      "target_basis": "Intenção: equipamento binóculo, não vigilância que inclua binóculo.",
+      "group": "equipamento-binoculo",
+      "split": "calibração",
+      "candidate_descriptions": [
+        {
+          "code": "4068073",
+          "description": "BINÓCULO"
+        },
+        {
+          "code": "4068026",
+          "description": "BINÓCULO"
+        },
+        {
+          "code": "4068038",
+          "description": "BINÓCULO"
+        }
+      ]
+    },
+    {
+      "id": "rocadera",
+      "kind": "human",
+      "category": "Erros curtos",
+      "query": "rocadera",
+      "candidate_codes": [
+        "4099986",
+        "4121049",
+        "4076666"
+      ],
+      "target_basis": "Intenção: equipamento roçadeira, não seu operador.",
+      "group": "equipamento-rocadeira",
+      "split": "calibração",
+      "candidate_descriptions": [
+        {
+          "code": "4099986",
+          "description": "ROÇADEIRAS"
+        },
+        {
+          "code": "4121049",
+          "description": "Roçadeira"
+        },
+        {
+          "code": "4076666",
+          "description": "Roçadeira"
+        }
+      ]
+    },
+    {
+      "id": "empilhadera",
+      "kind": "human",
+      "category": "Equipamento × atividade",
+      "query": "empilhadera diesel 2,5 toneladas",
+      "candidate_codes": [
+        "4044914"
+      ],
+      "target_basis": "Intenção: equipamento diesel de 2,5 t; conferir especificações.",
+      "group": "equipamento-empilhadeira",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4044914",
+          "description": "Empilhadeira Diesel2,5 ton-Yale/GDP060VX"
+        }
+      ]
+    },
+    {
+      "id": "pintar-paredes",
+      "kind": "human",
+      "category": "Paráfrases",
+      "query": "pintar paredes do prédio",
+      "candidate_codes": [
+        "4046695"
+      ],
+      "target_basis": "Candidato também inclui tubulações; equivalência precisa de julgamento.",
+      "group": "pintura-predial",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4046695",
+          "description": "SV- PINTURA PREDIAL PAREDES E TUBULAÇÕES"
+        }
+      ]
+    },
+    {
+      "id": "epoxi",
+      "kind": "human",
+      "category": "Paráfrases",
+      "query": "aplicar epóxi no piso",
+      "candidate_codes": [
+        "4027771"
+      ],
+      "target_basis": "Intenção: pintura de piso com tinta epóxi.",
+      "group": "pintura-piso",
+      "split": "calibração",
+      "candidate_descriptions": [
+        {
+          "code": "4027771",
+          "description": "SV-PINTURA DE PISO COM TINTA EPOXI A BAS"
+        }
+      ]
+    },
+    {
+      "id": "faixa",
+      "kind": "human",
+      "category": "Paráfrases",
+      "query": "pintar faixa de pedestre no asfalto",
+      "candidate_codes": [
+        "4044426",
+        "4027767"
+      ],
+      "target_basis": "Conferir se o segundo código genérico/truncado atende à mesma intenção.",
+      "group": "pintura-faixa",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4044426",
+          "description": "SV PINTURA DE FAIXAS DE PEDESTRE ASFALTO"
+        },
+        {
+          "code": "4027767",
+          "description": "SV-PINTURA DE FAIXAS DE PEDESTRE TINTA P"
+        }
+      ]
+    },
+    {
+      "id": "pintura-he50",
+      "kind": "human",
+      "category": "Siglas e percentuais",
+      "query": "pintura hora extra 50%",
+      "candidate_codes": [
+        "4096367"
+      ],
+      "target_basis": "Pintura × profissional pintor: confirmar interpretação pretendida.",
+      "group": "pintor-adicional",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4096367",
+          "description": "PINTOR - HORA EXTRA 50%"
+        }
+      ]
+    },
+    {
+      "id": "pintor-he100",
+      "kind": "human",
+      "category": "Siglas e percentuais",
+      "query": "pintor horas extras 100%",
+      "candidate_codes": [
+        "4096368",
+        "4066846"
+      ],
+      "target_basis": "Conferir profissional e adicional 100%.",
+      "group": "pintor-adicional",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4096368",
+          "description": "PINTOR - HORA EXTRA 100%"
+        },
+        {
+          "code": "4066846",
+          "description": "SV-PINTOR HE 100%"
+        }
+      ]
+    },
+    {
+      "id": "pintor-hnor",
+      "kind": "human",
+      "category": "Siglas e percentuais",
+      "query": "pintor hora normal",
+      "candidate_codes": [
+        "4096365",
+        "4090117"
+      ],
+      "target_basis": "À disposição pode ter regra comercial distinta.",
+      "group": "pintor-adicional",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4096365",
+          "description": "PINTOR - HORA NORMAL"
+        },
+        {
+          "code": "4090117",
+          "description": "PINTOR (HORA NORMAL)"
+        }
+      ]
+    },
+    {
+      "id": "pintor-not",
+      "kind": "human",
+      "category": "Siglas e percentuais",
+      "query": "pintor hora extra noturna",
+      "candidate_codes": [
+        "4096371"
+      ],
+      "target_basis": "Conferir extra + noturno; não presumir equivalência à disposição.",
+      "group": "pintor-adicional",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4096371",
+          "description": "PINTOR - HORA EXTRA NOTURNA"
+        }
+      ]
+    },
+    {
+      "id": "eletricista-he50",
+      "kind": "human",
+      "category": "Siglas e percentuais",
+      "query": "eletricista horas extras 50%",
+      "candidate_codes": [
+        "4096271",
+        "4100055"
+      ],
+      "target_basis": "Atividade eletricista deve prevalecer sobre pintor com mesmo adicional.",
+      "group": "eletricista-adicional",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4096271",
+          "description": "ELETRICISTA - HORA EXTRA 50%"
+        },
+        {
+          "code": "4100055",
+          "description": "ELETRICISTAS - HE 50%"
+        }
+      ]
+    },
+    {
+      "id": "eletrica-noite",
+      "kind": "human",
+      "category": "Paráfrases",
+      "query": "reparo de instalações elétricas à noite",
+      "candidate_codes": [
+        "4083608"
+      ],
+      "target_basis": "Hipótese: eletricista de manutenção noturno. Aprovação humana necessária.",
+      "group": "eletricista-adicional",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4083608",
+          "description": "ELETRICISTA DE MANUTENÇÃO (HORA NOT)"
+        }
+      ]
+    },
+    {
+      "id": "operador-he100",
+      "kind": "human",
+      "category": "Equipamento × atividade",
+      "query": "operador de empilhadeira extra 100%",
+      "candidate_codes": [
+        "4037180"
+      ],
+      "target_basis": "Intenção: profissional HE 100%, não equipamento ou HE 75%.",
+      "group": "operador-empilhadeira",
+      "split": "calibração",
+      "candidate_descriptions": [
+        {
+          "code": "4037180",
+          "description": "HE 100% Operador Empilhadeira 6x1"
+        }
+      ]
+    },
+    {
+      "id": "coifa",
+      "kind": "human",
+      "category": "Paráfrases",
+      "query": "higienização de coifa",
+      "candidate_codes": [
+        "4090705"
+      ],
+      "target_basis": "O candidato tem medidas específicas; conferir equivalência.",
+      "group": "limpeza-coifa",
+      "split": "calibração",
+      "candidate_descriptions": [
+        {
+          "code": "4090705",
+          "description": "SV Limpeza de uma coifa 1m x 4,00cm"
+        }
+      ]
+    },
+    {
+      "id": "asseio",
+      "kind": "human",
+      "category": "Paráfrases",
+      "query": "auxiliar de asseio predial",
+      "candidate_codes": [
+        "4077743"
+      ],
+      "target_basis": "Conferir atividade, sem assumir adicional de insalubridade.",
+      "group": "limpeza-predial",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4077743",
+          "description": "SV-AUX SERVIÇOS LIMPEZA PREDIAL"
+        }
+      ]
+    },
+    {
+      "id": "asg-sem",
+      "kind": "human",
+      "category": "Negação",
+      "query": "ASG sem insalubridade hora extra 50%",
+      "candidate_codes": [
+        "4037261"
+      ],
+      "target_basis": "Não aceitar COM insalubridade como equivalente.",
+      "group": "asg-insalubridade",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4037261",
+          "description": "H. EXTRA 50% ASG (SEM INSALUBRIDADE)"
+        }
+      ]
+    },
+    {
+      "id": "asg-com",
+      "kind": "human",
+      "category": "Negação",
+      "query": "ASG com insalubridade hora extra 50%",
+      "candidate_codes": [
+        "4037271"
+      ],
+      "target_basis": "Não aceitar SEM insalubridade como equivalente.",
+      "group": "asg-insalubridade",
+      "split": "validação",
+      "candidate_descriptions": [
+        {
+          "code": "4037271",
+          "description": "H. EXTRA 50% ASG (COM INSALUBRIDADE)"
+        }
+      ]
+    },
+    {
+      "id": "vigilancia-sem",
+      "kind": "human",
+      "category": "Negação",
+      "query": "vigilância sem binóculo 44 horas",
+      "candidate_codes": [
+        "4079199"
+      ],
+      "target_basis": "Não aceitar vigilância COM binóculo como equivalente.",
+      "group": "vigilancia-binoculo",
+      "split": "calibração",
+      "candidate_descriptions": [
+        {
+          "code": "4079199",
+          "description": "Sv.Vigilancia 44Hrs(seg/sab) sm binoculo"
+        }
+      ]
+    },
+    {
+      "id": "vigilancia-com",
+      "kind": "human",
+      "category": "Negação",
+      "query": "vigilância com binóculo 44 horas",
+      "candidate_codes": [
+        "4079198"
+      ],
+      "target_basis": "Conferir escala e presença de binóculo.",
+      "group": "vigilancia-binoculo",
+      "split": "calibração",
+      "candidate_descriptions": [
+        {
+          "code": "4079198",
+          "description": "Sv. Vigilancia 44Hrs(seg/sab) c/Binoculo"
+        }
+      ]
+    },
+    {
+      "id": "motor",
+      "kind": "human",
+      "category": "Sem equivalente confirmado",
+      "query": "manutenção de motor",
+      "candidate_codes": [],
+      "target_basis": "Não há equivalente explícito confirmado. Motor gasolina é equipamento, não comprova manutenção.",
+      "group": "ausencia-motor",
+      "split": "calibração",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "pintor-curto",
+      "kind": "human",
+      "category": "Descrição insuficiente",
+      "query": "pintor",
+      "candidate_codes": [],
+      "target_basis": "Profissional sem adicional, escala ou especificação: pode haver várias respostas aceitáveis.",
+      "group": "pintor-curto",
+      "split": "calibração",
+      "candidate_descriptions": []
+    },
+    {
+      "id": "he-isolado",
+      "kind": "human",
+      "category": "Descrição insuficiente",
+      "query": "HE 50%",
+      "candidate_codes": [],
+      "target_basis": "A consulta não informa atividade. Não presumir que um resultado seja resposta adequada.",
+      "group": "adicional-isolado",
+      "split": "calibração",
+      "candidate_descriptions": []
+    }
+  ]
+}

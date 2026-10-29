@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cadastro e Busca de Códigos</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="workflow.css">
     <script src="app.js" defer></script>
 </head>
 
@@ -18,6 +19,7 @@
 </header>
 
 <main class="container">
+    <nav class="workflow-nav"><a href="menu.html">← Menu</a><a href="index.html?modo=pesquisa">Pesquisar</a><a href="index.html?modo=unitario">Criação unitária</a><a href="massa.html">Criação em massa</a><a href="/api/catalog/export">Exportar catálogo</a></nav>
 
     <!-- STATUS DA API -->
     <section class="status-bar">
@@ -32,7 +34,7 @@
     </section>
 
     <!-- IMPORTAÇÃO -->
-    <section class="card">
+    <section class="card" id="reference-import">
         <div class="section-header">
             <h2>Importar catálogo</h2>
             <p>Envie uma planilha XLSX para indexar os serviços.</p>
@@ -64,7 +66,7 @@
     </section>
 
     <!-- FORMULÁRIO -->
-    <section class="card">
+    <section class="card" id="unit-generator">
         <div class="section-header">
             <h2>Gerador de código</h2>
             <p>Preencha os campos para montar o código automaticamente.</p>
@@ -102,7 +104,7 @@
         <div class="checkbox-grid">
             <label class="checkbox-item">
                 <input type="checkbox" id="horaNoturna">
-                Hora noturna (HNOT)
+                Noturno (NOT)
             </label>
 
             <label class="checkbox-item">
@@ -153,6 +155,11 @@
         </div>
 
         <h3>Informações complementares</h3>
+        <div class="form-row">
+            <div class="form-group"><label for="new-service-code">Identificador do serviço (opcional)</label><input type="text" id="new-service-code" maxlength="128" placeholder="Vazio: gerar identificador LOCAL"></div>
+            <div class="form-group"><label for="new-supplier">Código do fornecedor (opcional)</label><input type="text" id="new-supplier" maxlength="128"></div>
+            <div class="form-group"><label for="new-group">Grupo do serviço (opcional)</label><input type="text" id="new-group" maxlength="160"></div>
+        </div>
         <div class="form-row">
             <div class="form-group">
                 <label for="campoPercentualAdicional">
@@ -216,6 +223,17 @@
                 Encontrar os 20 mais próximos
                 <span>↗</span>
             </button>
+
+            <button
+                    type="button"
+                    id="add-code-button"
+                    class="btn btn-primary"
+                    aria-describedby="add-code-help"
+            >
+                Confirmar novo cadastro
+                <span aria-hidden="true">+</span>
+            </button>
+            <small id="add-code-help">Salva no catálogo SQL. Identificadores LOCAL são internos ao protótipo. Use Exportar catálogo para baixar o Excel atualizado.</small>
         </form>
 
         <div class="examples">
@@ -223,8 +241,8 @@
             <button type="button" class="chip" data-query="SV MANUTENCAO">
                 SV MANUTENCAO
             </button>
-            <button type="button" class="chip" data-query="SV HE HNOT">
-                SV HE HNOT
+            <button type="button" class="chip" data-query="SV HE NOT">
+                SV HE NOT
             </button>
         </div>
     </section>

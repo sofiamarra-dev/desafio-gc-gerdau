@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dicionário de siglas · Catálogo de serviços</title>
+  <link rel="stylesheet" href="siglas.css"><script src="siglas.js" defer></script>
+</head>
+<body>
+  <header class="topbar"><div class="shell topbar-content"><a href="menu.html" class="brand" aria-label="Voltar ao menu"><img src="gerdau-logo.png" alt="Gerdau"></a><a class="back-link" href="menu.html">← Voltar ao menu</a></div></header>
+  <main class="shell">
+    <div class="page-heading"><div><p class="eyebrow">Organização do catálogo</p><h1>Dicionário de siglas</h1><p class="subtitle">Diferentes formas de escrever. Um significado em comum.</p></div><button type="button" id="new-entry" class="button primary" disabled><span aria-hidden="true">+</span> Nova sigla</button></div>
+    <div id="page-message" class="message" role="status" aria-live="polite" hidden></div>
+    <div class="dictionary-layout">
+      <aside class="panel dictionary-panel" aria-label="Siglas cadastradas">
+        <div class="list-heading"><h2>Suas siglas</h2><span class="count" id="total-count">…</span></div>
+        <label for="dictionary-search" class="sr-only">Buscar sigla, significado ou variante</label>
+        <input type="search" id="dictionary-search" placeholder="Buscar sigla ou significado…" autocomplete="off" disabled>
+        <div class="filter-row"><label for="dictionary-filter" class="sr-only">Filtrar por situação</label><select id="dictionary-filter" disabled><option value="all">Todas as siglas</option><option value="active">Ativas</option><option value="inactive">Inativas</option></select><span id="visible-count" class="muted" aria-live="polite"></span></div>
+        <p id="list-state" class="empty-state">Carregando dicionário…</p>
+        <button id="retry-load" class="button secondary" type="button" hidden>Tentar novamente</button>
+        <ul id="dictionary-list" class="entry-list"></ul>
+      </aside>
+      <section class="panel editor-panel" aria-labelledby="editor-title">
+        <div id="editor-empty" class="editor-empty"><div class="empty-symbol" aria-hidden="true">Aa</div><h2>Um lugar para cada significado</h2><p>Selecione uma sigla ou cadastre a primeira para organizar suas formas de escrita.</p></div>
+        <form id="entry-form" hidden>
+          <div class="editor-heading"><div><p class="eyebrow" id="editor-kicker">Sigla cadastrada</p><h2 id="editor-title">Editar sigla</h2></div><span id="editor-status" class="status-pill"></span></div>
+          <div class="identity-grid"><div><label for="entry-code">Sigla padronizada</label><input id="entry-code" type="text" maxlength="16" pattern="[A-Za-z0-9]+" required placeholder="Ex.: HE" autocomplete="off" spellcheck="false"><p class="hint">Até 16 letras ou números.</p></div><div><label for="entry-meaning">Significado oficial</label><input id="entry-meaning" type="text" maxlength="80" required placeholder="Ex.: hora extra" autocomplete="off"></div></div>
+          <p id="identity-note" class="identity-note">A sigla e o significado ficam protegidos após o cadastro.</p>
+          <div class="actions" id="correction-actions" hidden><button type="button" id="start-correction" class="button secondary">Corrigir cadastro</button><button type="button" id="show-history" class="button secondary">Ver correções anteriores</button></div>
+          <div id="correction-fields" class="form-note" hidden><div><label for="correction-reason">Motivo da correção</label><textarea id="correction-reason" minlength="10" maxlength="500" rows="3"></textarea><p class="hint">Confira também as variantes: expressões com o significado antigo precisam ser removidas. O registro anterior ficará no histórico.</p><label><input type="checkbox" id="correction-confirmed"> Confirmei o significado e revisei todas as variantes.</label></div></div>
+          <div class="variants-section"><div class="label-row"><label for="entry-variants">Outras formas de escrever</label><span id="variant-count" class="muted">0 variantes</span></div><p id="variants-help" class="hint">Uma expressão por linha, sempre com o mesmo significado. A sigla e o significado oficial já são reconhecidos.</p><textarea id="entry-variants" rows="6" aria-describedby="variants-help" placeholder="horas extras" spellcheck="false"></textarea><div id="variant-chips" class="chips" aria-label="Variantes informadas"></div></div>
+          <div class="active-setting"><div><label for="entry-active">Usar esta sigla na busca</label><p class="hint">Ao desativar, suas variantes deixam de ser convertidas. O cadastro é mantido.</p></div><input id="entry-active" type="checkbox" class="toggle" checked></div>
+          <div class="form-note"><span aria-hidden="true">i</span><p>Cadastre aqui apenas <strong>qualificadores</strong>, como hora extra e adicional noturno. Termos essenciais à atividade devem permanecer na descrição. <strong>ESP e ADM isolados ficam na atividade.</strong> “AUX ADM” é parte da profissão; “ESP 20CM” pode indicar espessura. Expressões como “H ESP” ou o sufixo “-ADM” precisam de significado confirmado antes de qualquer cadastro.</p></div>
+          <p id="form-message" class="message" role="alert" hidden></p>
+          <div class="form-footer"><span id="dirty-state" class="muted" aria-live="polite">Nenhuma alteração pendente</span><div class="actions"><button type="button" id="discard-entry" class="button secondary">Cancelar</button><button id="save-entry" class="button primary" type="submit">Salvar alterações</button></div></div>
+        </form>
+      </section>
+    </div>
+    <section class="panel preview-panel" id="correction-history" hidden><h2>Correções anteriores</h2><p class="hint">Somente correções explícitas aparecem aqui. Para desfazer uma, registre outra correção com os valores anteriores.</p><div id="history-list"></div></section>
+    <section class="panel preview-panel" aria-labelledby="preview-title"><div class="preview-heading"><div><p class="eyebrow">Confira o resultado</p><h2 id="preview-title">Experimente uma descrição</h2><p class="hint">A prévia usa apenas as siglas já salvas. Alterações em edição não aparecem aqui.</p></div><span class="saved-badge">Dicionário salvo</span></div><form id="preview-form"><label for="preview-text" class="sr-only">Descrição para testar</label><div class="preview-input"><input type="text" id="preview-text" maxlength="300" placeholder="Ex.: PINTOR HORA EXTRA 50%" required><button class="button secondary" id="preview-button" type="submit" disabled>Ver separação →</button></div></form><p id="preview-message" class="message" role="status" hidden></p><div id="preview-result" class="preview-result" hidden><div><span class="result-label">Atividade principal</span><p id="preview-activity"></p></div><div><span class="result-label">Qualificadores</span><div id="preview-qualifiers" class="chips"></div></div><div class="standardized"><span class="result-label">Descrição padronizada</span><p id="preview-standardized"></p></div></div></section>
+    <footer class="page-footer">As descrições originais são preservadas. O dicionário orienta a separação usada na busca.</footer>
+  </main>
+</body>
+</html>
