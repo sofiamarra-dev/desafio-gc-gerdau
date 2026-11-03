@@ -58,14 +58,3 @@ Assim, por exemplo, `Pintor` pode atingir 100% com `Pintor HE 50%`; a presença 
 qualificadores no candidato não penaliza uma consulta sem qualificadores.
 Os embeddings medem proximidade dos textos preparados, sem impor igualdade de
 código, fornecedor ou unidade. Os originais são preservados ao aplicar.
-
-## Testes
-
-- Python: `python -m pytest ai-python/tests -q`.
-- Java: `./gradlew test` (Windows: `./gradlew.bat test`).
-- Interface: `node --test src/test/javascript/*.test.cjs`.
-
-Cobertura nova: escopo somente verificados; retomada por arquivo; escolha do
-novo/antigo; vínculos transitivos; confirmação obrigatória; filtro opcional;
-conflito com base alterada; recuperação após interrupção da confirmação;
-equivalência semântica original; falhas e repetição na criação em massa.

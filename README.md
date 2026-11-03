@@ -30,9 +30,9 @@ Para aguardar pelo terminal:
 docker compose up -d --build --wait --wait-timeout 900
 ```
 
-### Funcionalidades 
+## Funcionalidades 
 
-## Cadastro unitário
+### Cadastro unitário
 
 Preencha a descrição e consulte os semelhantes antes de confirmar novo cadastro.
 O identificador é separado da descrição montada pelo formulário. Se não for informado, será gerado um identificador `LOCAL-00000001`.
@@ -40,7 +40,7 @@ Ele é interno ao protótipo, não é um código emitido pelo SAP.
 O pedido possui `request_id` para que repetir a mesma confirmação não duplique o cadastro.
 O serviço é salvo no banco antes da sincronização. Na próxima busca, somente os textos novos/alterados geram embeddings; os anteriores são reaproveitados.
 
-## Criação em massa
+### Criação em massa
 
 Na tela **Criação em massa**, escolha **Planilha Excel** e clique em **Baixar planilha modelo**.
 O arquivo `modelo-solicitacoes.xlsx` contém os seis cabeçalhos aceitos, sem linhas de exemplo.
@@ -52,29 +52,29 @@ O arquivo cria um lote, sem inserir serviços imediatamente. Cada linha válida 
 2. **Confirmar novo cadastro** cria um serviço e registra a decisão de forma transacional.
 3. **Revisar depois** deixa a linha pendente e navega para outra.
 
-# Excel
+#### Excel
 
 **Exportar catálogo** baixa um novo XLSX com os serviços SQL. **Baixar resultado do lote** inclui linha de origem, situação, dados solicitados e código final.
 O sistema não altera o arquivo original no computador do usuário. Não existem vínculos com contratos nem login implementados nesta etapa.
 
-# Criação em massa por texto
+#### Criação em massa por texto
 
 Na tela **Criação em massa**, escolha **Colar texto**. Use uma solicitação por
 linha, sem cabeçalho, na ordem:
 `Descrição do Item;Grupo de Serviço;Código do Fornecedor;Código do Serviço;Unidade de medida;Descrição da Unidade`.
 
-## Edição de siglas
+### Edição de siglas
 
 No menu, abra **Gerenciar siglas** (`/siglas.html`). A lista permite buscar por
 sigla, significado e variantes, filtrar ativas/inativas e cadastrar novas siglas.
 As variantes são informadas uma por linha. É possível editar
 variantes e desativar uma sigla, preservando a reserva de suas expressões.
 
-## Limpeza de dados
+### Limpeza de dados
 
 Acesse **Limpeza de dados** no menu. A revisão usa uma cópia local persistente, compara somente com os registros já verificados e permite escolher qual equivalente manter. A base permanente só muda após concluir e confirmar **Usar como base permanente**. Veja [docs/LIMPEZA.md](docs/LIMPEZA.md) para armazenamento, retomada, marcações e regras do 100% semântico.
 
-### Rotas principais
+## Rotas principais
 
 | Rota Java | Função |
 |---|---|
