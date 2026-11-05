@@ -1,14 +1,33 @@
 """Comparação isolada de uma cópia: não altera o catálogo usado nas buscas."""
 from collections import OrderedDict
+import unicodedata
 
 import numpy as np
 
 from .abbreviations import prepare_dictionary
+from .embedder import normalized
 
 
 # Só absorve erro numérico de cosseno. Não representa um limiar de similaridade
 # aproximada (99,99%, por exemplo, continua exigindo uma decisão humana).
 SEMANTIC_EXACT_TOLERANCE = 1e-7
+
+# IDs e códigos de serviço podem ser diferentes em cadastros duplicados. Os
+# demais campos não são curingas: um valor ausente só é igual a outro ausente.
+IDENTITY_FIELDS = ('grupo_servico', 'codigo_fornecedor', 'unidade_medida', 'unidade_descricao')
+
+
+def identity_value(value):
+    """Ignora apenas caixa/espaços e composição Unicode; mantém acentos e sinais."""
+    return ' '.join(unicodedata.normalize('NFC', str(value or '').casefold()).split())
+
+
+def record_identity(row, split):
+    # A padronização altera apenas expressões reconhecidas pelo dicionário.
+    # Não compara conjuntos de palavras: ordem, repetições e qualificadores
+    # completos continuam compondo a chave de igualdade.
+    return (identity_value(split.standardized),
+            *(identity_value(row.get(field, '')) for field in IDENTITY_FIELDS))
 
 
 class ScopedComparison:
@@ -45,7 +64,8 @@ class ScopedComparison:
             split = dictionary.split(row['descricao_item'])
             return split, ('' if split.needs_review else split.activity), ' | '.join(split.qualifier_texts)
 
-        _, query_activity, query_qualifiers = parts(item)
+        query_split, query_activity, query_qualifiers = parts(item)
+        query_identity = record_identity(item, query_split)
         parsed = [parts(row) for row in candidates]
         activity_weight = activity_weight if query_activity else 0.0
         qualifier_weight = qualifier_weight if query_qualifiers else 0.0
@@ -54,8 +74,15 @@ class ScopedComparison:
             activity_weight /= total
             qualifier_weight /= total
         weights = {'activity': activity_weight, 'qualifiers': qualifier_weight}
+        query_words = set(normalized(item['descricao_item']).split())
+        def quick_check(results):
+            return {'version': 'quick-creation-1', 'candidate_count': len(candidates),
+                    'requires_review': bool(query_split.needs_review or any(
+                        row['correspondencia_palavras'] or row['similaridade_semantica'] > .90
+                        for row in results))}
         if not candidates:
-            return {'results': [], 'model': self.embedder.name, 'weights': weights}
+            return {'results': [], 'model': self.embedder.name, 'weights': weights,
+                    'quick_creation_check': quick_check([])}
 
         texts = list(dict.fromkeys([query_activity, query_qualifiers]
                                   + [text for _, activity, qualifiers in parsed for text in (activity, qualifiers)]))
@@ -89,7 +116,15 @@ class ScopedComparison:
             score = float(np.clip(activity_weight * np.dot(unit(activity), query_activity_vector)
                                   + qualifier_weight * np.dot(unit(qualifiers), query_qualifier_vector), -1, 1))
             results.append(dict(row, similaridade_semantica=score,
+                                correspondencia_palavras=bool(query_words and query_words.issubset(
+                                    set(normalized(row['descricao_item']).split()))),
                                 semantic_exact=bool(score >= 1.0 - SEMANTIC_EXACT_TOLERANCE),
+                                identical_record=bool(not query_split.needs_review and not split.needs_review
+                                                      and query_identity == record_identity(row, split)),
                                 atividade=split.activity, qualificadores=list(split.qualifier_texts)))
-        results.sort(key=lambda row: (row['semantic_exact'], row['similaridade_semantica']), reverse=True)
-        return {'results': results[:20], 'model': self.embedder.name, 'weights': weights}
+        # Igualdade cadastral não depende da nota semântica. Ela vem primeiro
+        # antes do corte dos 20 resultados, inclusive em colisões de embeddings.
+        results.sort(key=lambda row: (row['identical_record'], row['semantic_exact'],
+                                      row['similaridade_semantica']), reverse=True)
+        return {'results': results[:20], 'model': self.embedder.name, 'weights': weights,
+                'quick_creation_check': quick_check(results)}

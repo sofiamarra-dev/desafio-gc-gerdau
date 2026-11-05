@@ -20,7 +20,7 @@ class Element {
 function explanation(original, activity, qualifiers, standardized = original, needs_review = false) {
   return {original, activity, qualifiers, standardized, needs_review, dictionary_version:'test:1'};
 }
-async function setup(descriptions, analyze, autoMatch = () => ({automatic:false, resolved:false})) {
+async function setup(descriptions, analyze, autoMatch = () => ({automatic:false, resolved:false}), searchResults = [], mode = 'NORMAL') {
   const elements = {};
   for (const match of html.matchAll(/<([\w-]+)[^>]*\bid="([^"]+)"[^>]*>/g)) {
     const el = elements[match[2]] = new Element(match[1]);
@@ -33,13 +33,14 @@ async function setup(descriptions, analyze, autoMatch = () => ({automatic:false,
     const body = options.body ? JSON.parse(options.body) : undefined;
     calls.push({url, body});
     let data;
-    if (url === '/api/catalog/batches') data = [{id:'b', filename:'Teste', total:rows.length, pending:rows.filter(r => r.status === 'PENDING').length}];
+    if (url === '/api/catalog/batches') data = [{id:'b', filename:'Teste', creation_mode:mode, total:rows.length, pending:rows.filter(r => r.status === 'PENDING').length}];
+    else if (url === '/api/catalog/batches/text') data = {id:'b'};
     else if (url.includes('/items?')) data = rows.filter(r => r.row_number > Number(new URL(url, 'http://test').searchParams.get('after')));
-    else if (url === '/api/search') data = {results:[], query_parts:await analyze(body.query)};
+    else if (url === '/api/search') data = {results:searchResults, query_parts:await analyze(body.query)};
     else if (url.endsWith('/auto-match')) {
       const row = rows.find(r => url.includes(`/items/${r.id}/`));
       data = await autoMatch(row);
-      if (data.resolved) row.status = 'EXISTING';
+      if (data.resolved) row.status = data.created_quick ? 'CREATED' : 'EXISTING';
     }
     else if (url.endsWith('/decision')) { rows.find(r => url.includes(`/items/${r.id}/`)).status = 'CREATED'; data = {}; }
     else throw new Error(`Unexpected request ${url}`);
@@ -128,13 +129,15 @@ test('refreshes the current line after changing the dictionary and renders descr
   assert.equal(e['request-qualifiers'].children[0].textContent, 'HE');
 });
 
-test('automatically reuses semantic100 matches then presents the next unresolved request', async () => {
+test('automatically reuses identical records then presents the next unresolved request', async () => {
   const {elements:e, calls, rows, confirmations} = await setup(['Pintura', 'Motor'],
     q => explanation(q,q,[]), row => ({automatic:row.id === '1', resolved:row.id === '1'}));
   assert.equal(rows[0].status, 'EXISTING');
   assert.equal(rows[1].status, 'PENDING');
   assert.equal(e['request-description'].textContent, 'Motor');
   assert.match(e['batch-auto-summary'].textContent, /1 linha/);
+  assert.match(e['batch-auto-summary'].textContent, /registros idênticos/);
+  assert.doesNotMatch(e['batch-auto-summary'].textContent, /100%/);
   assert.equal(calls.filter(c => c.url.endsWith('/decision')).length, 0);
   assert.equal(calls.filter(c => c.url === '/api/search').length, 1);
   assert.equal(confirmations.length, 0);
@@ -152,4 +155,37 @@ test('auto-match failures keep the row pending and disable creation until retry'
   unavailable = false;
   await e['retry-request'].click();
   assert.equal(e['create-request'].disabled, false);
+});
+
+
+test('embedding100 suggestions stay pending and explicitly require manual review', async () => {
+  const candidate = {catalog_id:'old',codigo_servico:'A',descricao_item:'Pintor HE 50%',similaridade:1,
+    similaridade_semantica:1,semantic_exact:true,identical_record:false};
+  const {elements:e,rows,calls} = await setup(['Pintor'],q => explanation(q,q,[]),undefined,[candidate]);
+  const texts = el => [el.textContent,...el.children.map(texts)].join(' ');
+  assert.equal(rows[0].status,'PENDING');
+  assert.match(texts(e['batch-results']),/100.0% · revisão manual/);
+  assert.equal(calls.filter(call => call.url.endsWith('/decision')).length,0);
+  assert.equal(e['batch-auto-summary'].textContent,'');
+});
+
+test('quick mode skips automatic creations and keeps the high correspondence for manual review', async () => {
+  const {elements:e, rows, calls, confirmations} = await setup(['Sem correspondente','Possível duplicado'],
+    q => explanation(q,q,[]), row => row.id === '1'
+      ? {automatic:true,resolved:true,created_quick:true} : {automatic:false,resolved:false}, [], 'QUICK');
+  assert.equal(rows[0].status,'CREATED'); assert.equal(rows[1].status,'PENDING');
+  assert.match(e['batch-mode-label'].textContent,/rápida/);
+  assert.match(e['batch-auto-summary'].textContent,/1 cadastro.*verificação reduzida/);
+  assert.equal(e['request-description'].textContent,'Possível duplicado');
+  assert.equal(calls.filter(c => c.url === '/api/search').length,1);
+  assert.equal(confirmations.length,0);
+});
+
+test('selected quick mode is sent with pasted text', async () => {
+  const {elements:e,calls}=await setup(['Motor'],q => explanation(q,q,[]));
+  e['creation-mode'].value='QUICK';e['batch-text'].value='Motor;;;;;';
+  await e['batch-text-form'].listeners.submit({preventDefault() {}});
+  const sent=calls.find(c => c.url === '/api/catalog/batches/text');
+  assert.deepEqual(JSON.parse(JSON.stringify(sent.body)),{text:'Motor;;;;;',mode:'QUICK'});
+  assert.match(e['batch-mode-label'].textContent,/rápida/);
 });

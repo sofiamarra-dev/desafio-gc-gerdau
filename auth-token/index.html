@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verificação por Gmail</title>
+<style>
+:root {
+  --fundo: #e8edf5;
+  --papel: #ffffff;
+  --tinta: #14233b;
+  --suave: #5b6b82;
+  --linha: #c9d3e2;
+  --acento: #1f5eff;
+  --ok: #17794f;
+  --erro: #b3261e;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #0f1726;
+    --papel: #18233a;
+    --tinta: #e8edf7;
+    --suave: #9aa9c2;
+    --linha: #2c3b58;
+    --acento: #6b97ff;
+    --ok: #4cc38a;
+    --erro: #ff8a80;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--fundo);
+  color: var(--tinta);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main {
+  width: 100%;
+  max-width: 420px;
+  background: var(--papel);
+  border: 1px solid var(--linha);
+  border-radius: 14px;
+  padding: 32px 28px;
+}
+h1 { margin: 0 0 8px; font: 600 1.5rem/1.2 Georgia, "Times New Roman", serif; }
+p { margin: 0 0 24px; color: var(--suave); }
+label { display: block; margin-bottom: 6px; font-weight: 600; font-size: .9rem; }
+input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--linha);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+input:focus-visible, button:focus-visible { outline: 3px solid var(--acento); outline-offset: 2px; }
+#codigo {
+  font: 600 1.6rem/1.2 ui-monospace, "SF Mono", Consolas, monospace;
+  letter-spacing: .32em;
+  text-align: center;
+  padding: 14px 8px 14px calc(8px + .32em);
+}
+button {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--acento);
+  color: #fff;
+  font: 600 1rem system-ui, sans-serif;
+  cursor: pointer;
+}
+button:disabled { opacity: .6; cursor: wait; }
+button.link {
+  width: auto;
+  margin: 12px 0 0;
+  padding: 4px 0;
+  background: none;
+  color: var(--acento);
+  font-weight: 500;
+  font-size: .9rem;
+  text-decoration: underline;
+}
+#aviso { min-height: 1.5em; margin: 14px 0 0; font-size: .9rem; }
+#aviso.erro { color: var(--erro); }
+#aviso.ok { color: var(--suave); }
+.selo {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ok);
+  color: #fff;
+  font-size: 1.8rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .selo { animation: pop .35s ease-out; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+}
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <form id="etapa1">
+    <h1>Entrar com Gmail</h1>
+    <p>Enviaremos um código de verificação para o seu e-mail.</p>
+    <label for="email">Seu Gmail</label>
+    <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="nome@gmail.com" required autofocus>
+    <button id="btn1">Enviar código</button>
+  </form>
+
+  <form id="etapa2" hidden>
+    <h1>Digite o código</h1>
+    <p>Enviamos um código de 10 dígitos para <strong id="destino"></strong>.</p>
+    <label for="codigo">Código de verificação</label>
+    <input id="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="10" pattern="\d{10}" required>
+    <button id="btn2">Confirmar código</button>
+    <button type="button" class="link" id="reenviar">Enviar um novo código</button>
+    <button type="button" class="link" id="trocar">Usar outro e-mail</button>
+  </form>
+
+  <section id="etapa3" hidden>
+    <div class="selo" aria-hidden="true">✓</div>
+    <h1>Autenticação concluída</h1>
+    <p>O endereço <strong id="confirmado"></strong> foi verificado com sucesso.</p>
+  </section>
+
+  <div id="aviso" role="status" aria-live="polite"></div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let email = "";
+
+const post = async (url, corpo) => {
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
+    return await r.json();
+  } catch {
+    return { ok: false, msg: "Sem conexão com o servidor." };
+  }
+};
+
+const aviso = (texto = "", erro = true) => {
+  $("aviso").textContent = texto;
+  $("aviso").className = erro ? "erro" : "ok";
+};
+
+const mostrar = id => ["etapa1", "etapa2", "etapa3"].forEach(e => ($(e).hidden = e !== id));
+
+const enviar = async (alvo, botao) => {
+  botao.disabled = true;
+  aviso("Enviando código...", false);
+  const r = await post("/enviar", { email: alvo });
+  botao.disabled = false;
+  if (!r.ok) return aviso(r.msg), false;
+  email = alvo;
+  aviso(botao.id === "reenviar" ? "Novo código enviado." : "", false);
+  return true;
+};
+
+$("etapa1").onsubmit = async e => {
+  e.preventDefault();
+  if (!(await enviar($("email").value.trim().toLowerCase(), $("btn1")))) return;
+  $("destino").textContent = email;
+  mostrar("etapa2");
+  $("codigo").focus();
+};
+
+$("reenviar").onclick = () => enviar(email, $("reenviar"));
+
+$("trocar").onclick = () => {
+  $("codigo").value = "";
+  aviso();
+  mostrar("etapa1");
+  $("email").focus();
+};
+
+$("codigo").oninput = e => (e.target.value = e.target.value.replace(/\D/g, ""));
+
+$("etapa2").onsubmit = async e => {
+  e.preventDefault();
+  $("btn2").disabled = true;
+  const r = await post("/verificar", { email, codigo: $("codigo").value });
+  $("btn2").disabled = false;
+  if (!r.ok) return aviso(r.msg), $("codigo").select();
+  aviso();
+  $("confirmado").textContent = email;
+  mostrar("etapa3");
+};
+</script>
+</body>
+</html>

@@ -41,13 +41,20 @@ function appendCleanupFields(container, item) {
     const value = document.createElement('dd'); value.textContent = item[key] || '—';
     group.append(term,value); return group;
   }));
+  if (item.required_cleanup_passes) {
+    const group=document.createElement('div');
+    const term=document.createElement('dt'); term.textContent='Verificação';
+    const value=document.createElement('dd');
+    value.textContent=`${item.cleanup_passes || 0}/${item.required_cleanup_passes} limpezas aplicadas${item.creation_kind === 'QUICK' ? ' · criação rápida' : ''}`;
+    group.append(term,value); container.append(group);
+  }
 }
 function semanticLabel(result) {
-  if (result.semantic_exact === true) return '100% · embeddings';
+  if (result.identical_record === true) return 'Registro idêntico';
   const score = Number(result.similaridade_semantica);
-  if (!Number.isFinite(score)) return 'Similaridade indisponível';
-  // Um valor arredondado nunca é apresentado como a equivalência automática.
-  return `${Math.min(99.9999, Math.max(0, score * 100)).toLocaleString('pt-BR', {maximumFractionDigits: 4})}% · embeddings`;
+  if (!Number.isFinite(score)) return 'Similaridade indisponível · revisão manual';
+  // A similaridade orienta a revisão; mesmo 100% não comprova identidade.
+  return `${Math.min(100, Math.max(0, score * 100)).toLocaleString('pt-BR', {maximumFractionDigits: 4})}% · embeddings · revisão manual`;
 }
 function renderCleanup(detail) {
   cleanup = detail;
@@ -62,7 +69,7 @@ function renderCleanup(detail) {
   cleanupElement('continue-cleanup').hidden = applied || detail.pending === 0 || detail.analysis_ready === true;
   cleanupElement('cleanup-summary').hidden = detail.pending !== 0;
   cleanupElement('summary-title').textContent = applied ? 'Limpeza aplicada' : 'Cópia revisada';
-  cleanupElement('summary-text').textContent = `${detail.verified} registros mantidos e ${detail.replaced} substituídos, de um total de ${detail.total}.`;
+  cleanupElement('summary-text').textContent = `${detail.verified} registros mantidos e ${detail.replaced} substituídos, de um total de ${detail.total}. ${detail.awaiting_verification || 0} mantido(s) ainda precisarão de outra limpeza para a verificação completa.`;
   cleanupElement('apply-cleanup').hidden = applied;
   cleanupElement('apply-help').hidden = applied;
   cleanupElement('cleanup-review').hidden = applied || !detail.current || detail.analysis_ready !== true;
@@ -73,7 +80,7 @@ function renderCleanup(detail) {
     appendCleanupFields(cleanupElement('current-fields'), detail.current);
     for (const candidate of detail.results || []) {
       const card = document.createElement('article'); card.className = 'cleanup-candidate';
-      const label = document.createElement('span'); label.className = 'review-label'; label.textContent = 'Já verificado';
+      const label = document.createElement('span'); label.className = 'review-label'; label.textContent = 'Já analisado na cópia ou verificado anteriormente';
       const title = document.createElement('h4'); title.textContent = candidate.descricao_item;
       const score = document.createElement('span'); score.className = 'cleanup-score'; score.textContent = semanticLabel(candidate);
       const fields = document.createElement('dl'); fields.className = 'cleanup-fields'; appendCleanupFields(fields,candidate);
@@ -95,7 +102,7 @@ function logAutomatic(automatic) {
   const kept = automatic.kept || current;
   item.textContent = current.catalog_id === kept.catalog_id
     ? `Mantido como referência: ${current.descricao_item || current.codigo_servico || 'registro'}.`
-    : `100% pelos embeddings: ${current.descricao_item || current.codigo_servico} → mantido ${kept.codigo_servico || kept.descricao_item}.`;
+    : `Registro idêntico: ${current.descricao_item || current.codigo_servico} → mantido ${kept.codigo_servico || kept.descricao_item}.`;
   cleanupElement('automatic-log').append(item);
 }
 async function loadCleanups() {
@@ -116,25 +123,28 @@ async function openCleanup(id) {
   try {
     renderCleanup(await cleanupRequest(`/api/cleanups/${encodeURIComponent(id)}`));
     cleanupElement('automatic-log').replaceChildren();
-    cleanupNotice(cleanup.status === 'APPLIED' ? 'Esta cópia já foi aplicada à base permanente.' : 'Cópia recuperada. Suas decisões anteriores estão salvas.');
+    cleanupNotice(cleanup.warning || (cleanup.status === 'APPLIED' ? 'Esta cópia já foi aplicada à base permanente.' : 'Cópia recuperada. Suas decisões anteriores estão salvas.'));
   } catch (error) { cleanupNotice(error.message,true); }
   finally { setCleanupBusy(false); }
 }
 async function advanceCleanup() {
   if (cleanupBusy || !cleanup || cleanup.pending === 0 || cleanup.status === 'APPLIED') return;
   pauseRequested = false; setCleanupBusy(true,true);
+  let reviewWarning = cleanup.warning || '';
   try {
     while (!pauseRequested && cleanup.pending > 0) {
       cleanupNotice('Comparando o próximo registro somente com os já verificados…');
       const detail = await cleanupRequest(cleanupPath('/next'),{});
       renderCleanup(detail);
+      if (detail.warning) reviewWarning = detail.warning;
       if (detail.automatic) logAutomatic(detail.automatic);
       if (!detail.automatic || detail.pending === 0) break;
       setCleanupBusy(true,true);
       // Devolve o controle à página entre registros para permitir pausar.
       await new Promise(resolve => setTimeout(resolve,0));
     }
-    cleanupNotice(pauseRequested ? 'Revisão pausada. O progresso está salvo na cópia local.' : cleanup.pending === 0 ? 'Cópia revisada. A base permanente só mudará após sua confirmação.' : 'Compare os registros e escolha qual manter. A decisão será salva somente na cópia.');
+    const progressNotice = pauseRequested ? 'Revisão pausada. O progresso está salvo na cópia local.' : cleanup.pending === 0 ? 'Cópia revisada. A base permanente só mudará após sua confirmação.' : 'Compare os registros e escolha qual manter. A decisão será salva somente na cópia.';
+    cleanupNotice(reviewWarning ? `${reviewWarning} ${progressNotice}` : progressNotice);
     await loadCleanups();
   } catch (error) { cleanupNotice(`${error.message} O progresso já confirmado está salvo; tente continuar.`,true); }
   finally { setCleanupBusy(false); }
@@ -144,7 +154,7 @@ async function cleanupDecision(action,candidateId) {
   setCleanupBusy(true);
   try {
     renderCleanup(await cleanupRequest(cleanupPath('/decision'),{action,candidate_id:candidateId,current_id:cleanup.current.catalog_id}));
-    cleanupNotice('Decisão salva na cópia.');
+    cleanupNotice(cleanup.warning || 'Decisão salva na cópia.');
     await loadCleanups();
   } catch (error) { cleanupNotice(error.message,true); return; }
   finally { setCleanupBusy(false); }

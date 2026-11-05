@@ -21,6 +21,8 @@
 .batch-list { display: flex; flex-wrap: wrap; gap: 10px; padding: 0; list-style: none; }
 .batch-list button { text-align: left; border: 1px solid var(--borda); background: white; border-radius: 8px; padding: 14px; cursor: pointer; }
 .notice { overflow-wrap: anywhere; }
+#creation-mode { display:block; width:100%; max-width:580px; margin:8px 0; padding:12px; border:1px solid var(--borda); border-radius:8px; background:white; color:var(--texto); font:inherit; }
+#creation-mode-help { color:var(--cinza); font-size:14px; }
 @media (max-width: 800px) { .menu-grid, .review-layout { grid-template-columns: 1fr; } }
 
 .batch-source { display:flex; gap:10px; flex-wrap:wrap; margin:20px 0; }
@@ -43,3 +45,7 @@
 .separation-tools { display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:13px; }
 .separation-tools .btn { background:white; color:var(--azul-escuro); border:1px solid var(--borda); }
 @media (max-width:800px) { .review-layout { grid-template-columns:1fr; } }
+
+[data-admin-only][hidden] { display: none !important; }
+.menu-grid.cleanup-menu { grid-template-columns: repeat(2,minmax(0,1fr)); }
+@media(max-width:800px) { .menu-grid.cleanup-menu { grid-template-columns:1fr; } }

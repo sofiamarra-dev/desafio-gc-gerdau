@@ -27,8 +27,8 @@ class BulkSemanticReviewTests {
         return new BulkSemanticReview(store, python, dictionary);
     }
 
-    @Test void reusesSemantic100AndDoesNotCreateAnyService() {
-        var review = prepare("{\"results\":[{\"catalog_id\":\"existing\",\"semantic_exact\":true,\"similaridade_semantica\":1.0}]}");
+    @Test void reusesIdenticalRecordWithoutConsultingSemanticScore() {
+        var review = prepare("{\"results\":[{\"catalog_id\":\"existing\",\"identical_record\":true,\"semantic_exact\":false,\"similaridade_semantica\":0.2}]}");
         var result = review.match("batch","item");
         assertEquals(true,result.get("automatic"));
         assertEquals(existing,result.get("service"));
@@ -37,11 +37,13 @@ class BulkSemanticReviewTests {
         verify(store,never()).resolve(anyString(),anyString(),anyString(),any());
     }
 
-    @Test void textContainsAndRoundedOrForced100NeverTriggerReuse() {
+    @Test void containsAndSemantic100WithoutIdentityNeverTriggerReuse() {
         for (String response : List.of(
                 "{\"results\":[{\"catalog_id\":\"existing\",\"correspondencia_palavras\":true,\"similaridade\":1,\"similaridade_semantica\":0.85}]}",
                 "{\"results\":[{\"catalog_id\":\"existing\",\"correspondencia_exata\":true,\"similaridade\":1,\"similaridade_semantica\":0.99996,\"semantic_exact\":false}]}",
-                "{\"results\":[{\"catalog_id\":\"existing\",\"semantic_exact\":true,\"similaridade_semantica\":0.99996}]}")) {
+                "{\"results\":[{\"catalog_id\":\"existing\",\"semantic_exact\":true,\"similaridade_semantica\":0.99996}]}",
+                "{\"results\":[{\"catalog_id\":\"existing\",\"identical_record\":false,\"semantic_exact\":true,\"similaridade_semantica\":1.0}]}",
+                "{\"results\":[{\"catalog_id\":\"existing\",\"semantic_exact\":true,\"similaridade_semantica\":1.0}]}")) {
             assertEquals(false,prepare(response).match("batch","item").get("resolved"));
         }
         verify(store,never()).resolveExistingIfRevision(anyString(),anyString(),anyString(),anyString(),anyString());
@@ -64,7 +66,7 @@ class BulkSemanticReviewTests {
     }
 
     @Test void resultOutsideComparedSnapshotIsRejected() {
-        var review = prepare("{\"results\":[{\"catalog_id\":\"other\",\"semantic_exact\":true,\"similaridade_semantica\":1.0}]}");
+        var review = prepare("{\"results\":[{\"catalog_id\":\"other\",\"identical_record\":true,\"semantic_exact\":false,\"similaridade_semantica\":0.2}]}");
         assertThrows(IllegalStateException.class, () -> review.match("batch","item"));
         verify(store,never()).resolveExistingIfRevision(anyString(),anyString(),anyString(),anyString(),anyString());
     }

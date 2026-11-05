@@ -18,3 +18,5 @@ outputs
 *.log
 
 data/
+
+auth-token/

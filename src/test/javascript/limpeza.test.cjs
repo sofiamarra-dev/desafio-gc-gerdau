@@ -16,7 +16,7 @@ class Element {
 }
 const item = (id,description) => ({catalog_id:id,codigo_servico:id,descricao_item:description,codigo_fornecedor:'12',unidade_medida:'H'});
 const current = item('new','PINTOR HE 50%');
-const existing = {...item('old','SV PINTOR HE 50%'),similaridade_semantica:.91,semantic_exact:false};
+const existing = {...item('old','SV PINTOR HE 50%'),similaridade_semantica:.91,semantic_exact:false,identical_record:false};
 const detail = (changes = {}) => ({id:'draft',status:'DRAFT',total:2,pending:1,verified:1,replaced:0,skip_verified:true,created_at:'2026-10-29T12:00:00Z',current,results:[existing],analysis_ready:true,automatic:null,...changes});
 async function setup(handle, confirmAnswer = true) {
   const elements = {};
@@ -78,20 +78,20 @@ test('creates with the optional filter and loops over automatic decisions withou
   assert.deepEqual(calls.find(call => call.url === '/api/cleanups' && call.body).body,{skip_verified:false});
   assert.equal(next,2);
   assert.equal(e['automatic-log'].children.length,2);
-  assert.match(allText(e['automatic-log']),/100% pelos embeddings/);
+  assert.match(allText(e['automatic-log']),/Registro idêntico/);
   assert.equal(e['cleanup-summary'].hidden,false);
   assert.equal(confirmations.length,0);
   assert.equal(calls.filter(call => call.url.endsWith('/apply')).length,0);
 });
 
-test('contains and near-perfect rounded scores stay manual and descriptions are rendered as text', async () => {
+test('contains and embedding100 scores stay manual and descriptions are rendered as text', async () => {
   const unsafe = '<img src=x onerror=alert(1)> PINTOR';
-  const state = detail({current:item('new',unsafe),results:[{...existing,descricao_item:unsafe,similaridade_semantica:.99999999,correspondencia_palavras:true,correspondencia_exata:true}]});
+  const state = detail({current:item('new',unsafe),results:[{...existing,descricao_item:unsafe,similaridade_semantica:1,semantic_exact:true,identical_record:false,correspondencia_palavras:true,correspondencia_exata:true}]});
   const {elements:e,calls} = await setup(url => url === '/api/cleanups' ? [state] : state);
   await e['cleanup-list'].children[0].children[0].click();
   assert.equal(e['current-description'].textContent,unsafe);
-  assert.match(allText(e['cleanup-candidates']),/99,9999%/);
-  assert.doesNotMatch(allText(e['cleanup-candidates']),/100%/);
+  assert.match(allText(e['cleanup-candidates']),/100% · embeddings · revisão manual/);
+  assert.doesNotMatch(allText(e['cleanup-candidates']),/Registro idêntico/);
   assert.equal(e['cleanup-review'].hidden,false);
   assert.equal(calls.filter(call => call.body).length,0);
   assert.doesNotMatch(script,/innerHTML/);
@@ -172,4 +172,25 @@ test('a failed comparison leaves the record pending and lets the user retry', as
   await e['continue-cleanup'].click();
   assert.equal(e['cleanup-review'].hidden,false);
   assert.equal(calls.filter(call => call.url.endsWith('/decision')).length,0);
+});
+
+
+test('identical records have their own label independent of the embedding score', async () => {
+  const state = detail({results:[{...existing,similaridade_semantica:.41,semantic_exact:false,identical_record:true}]});
+  const {elements:e} = await setup(url => url === '/api/cleanups' ? [state] : state);
+  await e['cleanup-list'].children[0].children[0].click();
+  assert.match(allText(e['cleanup-candidates']),/Registro idêntico/);
+  assert.doesNotMatch(allText(e['cleanup-candidates']),/100%/);
+});
+
+
+test('resuming an older copy explains which automatic decisions require review again', async () => {
+  const warning = 'Esta cópia foi atualizada: decisões automáticas da regra antiga voltaram para revisão. Decisões manuais foram preservadas.';
+  const state = detail({warning,analysis_ready:false,results:[]});
+  const {elements:e} = await setup(url => url === '/api/cleanups' ? [state] : url.endsWith('/next') ? detail() : state);
+  await e['cleanup-list'].children[0].children[0].click();
+  assert.equal(e['cleanup-notice'].textContent,warning);
+  await e['continue-cleanup'].click();
+  assert.match(e['cleanup-notice'].textContent,/decisões automáticas da regra antiga voltaram para revisão/);
+  assert.match(e['cleanup-notice'].textContent,/Decisões manuais foram preservadas/);
 });

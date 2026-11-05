@@ -25,7 +25,7 @@ class CatalogCleanupTests {
     CatalogCleanup cleanup;
     @BeforeEach void setup() {
         db.update("DELETE FROM review_item"); db.update("DELETE FROM review_batch");
-        db.update("DELETE FROM catalog_service"); db.update("DELETE FROM catalog_cleanup_run");
+        db.update("DELETE FROM catalog_cleanup_review"); db.update("DELETE FROM catalog_service"); db.update("DELETE FROM catalog_cleanup_run");
         reset(python);
         cleanup=new CatalogCleanup(store,abbreviations,python,json,directory.toString());
     }
@@ -35,8 +35,10 @@ class CatalogCleanupTests {
     String id(Map<String,?> row) { return row.get("id").toString(); }
     @SuppressWarnings("unchecked") Map<String,String> current(Map<String,Object> row) { return (Map<String,String>)row.get("current"); }
     String seed(String id) { return ((Map<?,?>)((Map<?,?>)cleanup.next(id).get("automatic")).get("kept")).get("catalog_id").toString(); }
-    void comparison(String candidate, double score, boolean exact) {
-        when(python.compare(anyMap(),anyList(),any())).thenReturn(json.readTree("{\"results\":[{\"catalog_id\":\""+candidate+"\",\"similaridade_semantica\":"+score+",\"semantic_exact\":"+exact+",\"correspondencia_palavras\":true,\"similaridade\":1}]}"));
+    void comparison(String candidate, double score, boolean identical) {
+        when(python.compare(anyMap(),anyList(),any())).thenReturn(json.readTree(json.writeValueAsString(Map.of("results",List.of(
+                Map.of("catalog_id",candidate,"similaridade_semantica",score,"semantic_exact",true,
+                        "identical_record",identical,"correspondencia_palavras",true,"similaridade",1))))));
     }
     @Test void copyIsResumableAndOnlyVerifiedItemsAreComparedThenApplyRequiresConfirmation() {
         add("A");add("B");add("C");
@@ -65,13 +67,15 @@ class CatalogCleanupTests {
         assertFalse(store.all().getFirst().get("cleaned_at").isBlank());
         var after=store.snapshot();cleanup.apply(run,true);assertEquals(after,store.snapshot(),"Aplicação idempotente");
     }
-    @Test void onlyUnroundedSemanticExactAutomaticallyReusesVerified() {
+    @Test void semantic100AndContainsRemainManualWhileIdentityAloneAuthorizesReuse() {
         add("A");add("B");String run=id(cleanup.create(true));String first=seed(run);
         comparison(first,1,false);assertNull(cleanup.next(run).get("automatic"));
-        // Nova cópia para testar um resultado quase perfeito: nem a barra nem o arredondamento aprovam.
-        String near=id(cleanup.create(true));seed(near);comparison(first,.99996,true);
-        assertNull(cleanup.next(near).get("automatic"));
-        String exact=id(cleanup.create(true));seed(exact);comparison(first,1,true);
+        assertEquals(1,cleanup.get(run).get("pending"));
+        String missing=id(cleanup.create(true));seed(missing);
+        when(python.compare(anyMap(),anyList(),any())).thenReturn(json.readTree(json.writeValueAsString(Map.of("results",List.of(
+                Map.of("catalog_id",first,"semantic_exact",true,"similaridade_semantica",1.0))))));
+        assertNull(cleanup.next(missing).get("automatic"),"Resposta antiga sem identidade deve ficar manual");
+        String exact=id(cleanup.create(true));seed(exact);comparison(first,.2,true);
         assertNotNull(cleanup.next(exact).get("automatic"));assertEquals(0,cleanup.get(exact).get("pending"));
         assertEquals(2,store.all().size()); // Ainda não aplicado.
     }
@@ -111,4 +115,39 @@ class CatalogCleanupTests {
         assertEquals("APPLIED",cleanup.get(run).get("status"));
         cleanup.apply(run,true);assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM catalog_cleanup_run",Integer.class));
     }
+    @SuppressWarnings("unchecked")
+    void markAsLegacy(String run) throws Exception {
+        Path file=directory.resolve(run+".json");
+        var saved=(Map<String,Object>)json.readValue(Files.readString(file),Map.class);
+        saved.remove("automaticRule");
+        Files.writeString(file,json.writeValueAsString(saved));
+    }
+    @Test void legacyUnappliedSemanticDecisionsReturnToPendingWithoutLosingSeedOrManualChoices() throws Exception {
+        add("A");add("B");add("C");String run=id(cleanup.create(true));String first=seed(run);
+        comparison(first,.4,false);var manual=cleanup.next(run);
+        String manuallyKept=current(manual).get("catalog_id");
+        cleanup.decide(run,manuallyKept,"DISTINCT",null);
+        comparison(first,1,true);assertNotNull(cleanup.next(run).get("automatic"));
+        assertEquals(0,cleanup.get(run).get("pending"));
+        markAsLegacy(run);
+        var reset=cleanup.get(run);
+        assertEquals(1,reset.get("pending"));assertEquals(2L,reset.get("verified"));assertEquals(0L,reset.get("replaced"));
+        assertEquals(false,reset.get("analysis_ready"));
+        comparison(first,1,false);assertNull(cleanup.next(run).get("automatic"));
+        assertEquals(3,store.all().size(),"A migração da cópia não pode alterar o SQL");
+        assertEquals(1,cleanup.get(run).get("pending"),"Ler novamente não repete a migração");
+        var saved=json.readValue(Files.readString(directory.resolve(run+".json")),CatalogCleanup.Draft.class);
+        assertEquals("identical-records-1",saved.automaticRule());
+        assertEquals(first,saved.representatives().get(first));
+        assertEquals(manuallyKept,saved.representatives().get(manuallyKept));
+    }
+    @Test void legacyAlreadyAppliedCopyIsNotReopenedOrAppliedAgain() throws Exception {
+        add("A");add("B");String run=id(cleanup.create(true));String first=seed(run);
+        comparison(first,.2,true);cleanup.next(run);cleanup.apply(run,true);
+        var permanent=store.snapshot();markAsLegacy(run);
+        var applied=cleanup.get(run);
+        assertEquals("APPLIED",applied.get("status"));assertEquals(0,applied.get("pending"));
+        assertEquals(1L,applied.get("replaced"));assertEquals(permanent,store.snapshot());
+    }
+
 }

@@ -7,6 +7,8 @@ let suggestionsReady = false;
 let separationReady = false;
 let separationNeedsReview = false;
 let automaticResolved = 0;
+let quickCreated = 0;
+let activeMode = 'NORMAL';
 let pauseAutomatic = false;
 
 function notice(text, error = false) {
@@ -29,7 +31,7 @@ function setBusy(value) {
   byId('resume-automatic').disabled = value;
   document.querySelectorAll('#batch-results button').forEach(button => { button.disabled = value || !button.dataset.serviceId; });
   document.querySelectorAll('#batch-list button').forEach(button => { button.disabled = value; });
-  for (const id of ['batch-upload-button', 'batch-text-button', 'source-excel', 'source-text', 'batch-text', 'batch-file']) byId(id).disabled = value;
+  for (const id of ['batch-upload-button', 'batch-text-button', 'source-excel', 'source-text', 'batch-text', 'batch-file', 'creation-mode']) byId(id).disabled = value;
 }
 function clearSeparation() {
   separationReady = false;
@@ -76,11 +78,13 @@ async function loadBatches() {
     const li = document.createElement('li');
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = `${batch.filename} · ${batch.pending} pendentes / ${batch.total} · ${batch.resolved} resolvidas · ${batch.invalid} inválidas`;
+    button.textContent = `${batch.filename} · ${batch.creation_mode === 'QUICK' ? 'Rápida' : 'Normal'} · ${batch.pending} pendentes / ${batch.total} · ${batch.resolved} resolvidas · ${batch.invalid} inválidas`;
     button.disabled = busy;
     button.addEventListener('click', async () => {
       if (busy) return;
       activeBatch = batch.id;
+      activeMode = batch.creation_mode || 'NORMAL';
+      quickCreated = 0;
       automaticResolved = 0;
       byId('batch-auto-summary').textContent = '';
       byId('review-section').hidden = false;
@@ -101,6 +105,7 @@ async function findPending(after) {
   }
 }
 async function showPending(after) {
+  byId('batch-mode-label').textContent = activeMode === 'QUICK' ? 'Criação rápida · cadastros automáticos precisam de duas limpezas para verificação completa.' : 'Criação normal · revisão de cada solicitação.';
   const ticket = ++generation;
   suggestionsReady = false;
   activeItem = null;
@@ -130,8 +135,9 @@ async function showPending(after) {
       const match = await request(`/api/catalog/batches/${encodeURIComponent(activeBatch)}/items/${encodeURIComponent(activeItem.id)}/auto-match`, post({}));
       if (ticket !== generation) return;
       if (!match.resolved) break;
-      if (match.automatic) automaticResolved++;
-      byId('batch-auto-summary').textContent = `${automaticResolved} linha(s) vinculada(s) automaticamente nesta revisão por 100% dos embeddings. Nenhum novo cadastro foi criado para elas.`;
+      if (match.automatic && match.created_quick) quickCreated++;
+      else if (match.automatic) automaticResolved++;
+      byId('batch-auto-summary').textContent = `${automaticResolved} linha(s) vinculada(s) automaticamente por registros idênticos. ${quickCreated} cadastro(s) criado(s) rapidamente, com verificação reduzida (0/2 limpezas). Contagem desta sessão de revisão.`;
       after = activeItem.row_number;
       activeItem = null;
     }
@@ -141,7 +147,7 @@ async function showPending(after) {
       byId('request-title').textContent = 'Revisão concluída';
       byId('request-description').textContent = 'Não há solicitações pendentes neste lote.';
       byId('request-context').textContent = 'Baixe o resultado para conferir as decisões e eventuais linhas inválidas.';
-      notice('Todas as linhas válidas deste lote foram revisadas.');
+      notice('Todas as linhas válidas deste lote foram processadas. Confira o nível de verificação no resultado do lote.');
       return;
     }
     const fields = activeItem.fields;
@@ -164,7 +170,7 @@ async function showPending(after) {
       choose.disabled = !result.catalog_id;
       choose.addEventListener('click', () => decide('EXISTING', result.catalog_id));
       const actionCell = document.createElement('td'); actionCell.append(choose);
-      const match = result.correspondencia_exata ? 'Exato' : result.correspondencia_palavras ? 'contem' : `${(result.similaridade * 100).toFixed(1)}%`;
+      const match = result.identical_record === true ? 'Registro idêntico' : `${result.correspondencia_exata ? 'Exato' : result.correspondencia_palavras ? 'contem' : `${(result.similaridade * 100).toFixed(1)}%`} · revisão manual`;
       tr.append(cell(`${result.codigo_servico} — ${result.descricao_item}`), cell(`${result.codigo_fornecedor || '—'} / ${result.unidade_medida || '—'}`), cell(match), actionCell);
       byId('batch-results').append(tr);
     }
@@ -208,9 +214,10 @@ byId('batch-upload').addEventListener('submit', async event => {
   if (!file || !file.name.toLowerCase().endsWith('.xlsx') || file.size > 15 * 1024 * 1024) return notice('Selecione um XLSX de até 15 MB.', true);
   setBusy(true);
   try {
-    const form = new FormData(); form.append('file', file);
+    const form = new FormData(); form.append('file', file); form.append('mode', byId('creation-mode').value || 'NORMAL');
     const batch = await request('/api/catalog/batches', {method:'POST', body:form});
     activeBatch = batch.id;
+    activeMode = byId('creation-mode').value || 'NORMAL'; quickCreated = 0;
     automaticResolved = 0;
     byId('batch-auto-summary').textContent = '';
     byId('review-section').hidden = false;
@@ -237,8 +244,10 @@ byId('batch-text-form').addEventListener('submit', async event => {
   if (!text.trim()) return notice('Cole ao menos uma solicitação.', true);
   setBusy(true);
   try {
-    const batch = await request('/api/catalog/batches/text', post({text}));
+    const mode=byId('creation-mode').value || 'NORMAL';
+    const batch = await request('/api/catalog/batches/text', post({text,mode}));
     activeBatch = batch.id;
+    activeMode = mode; quickCreated = 0;
     automaticResolved = 0;
     byId('batch-auto-summary').textContent = '';
     byId('review-section').hidden = false;

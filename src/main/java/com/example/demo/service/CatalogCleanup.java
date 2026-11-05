@@ -15,10 +15,11 @@ import java.util.*;
 /** A revisão grava somente arquivos locais; SQL só muda na confirmação final. */
 @Service
 public class CatalogCleanup {
+    private static final String AUTOMATIC_RULE = "identical-records-1";
     public record Draft(String id, String status, String sourceRevision, String createdAt, boolean skipVerified,
                         AbbreviationStore.Snapshot dictionary, List<Map<String,String>> items,
                         Map<String,String> representatives, List<Map<String,Object>> decisions,
-                        List<Map<String,Object>> results, String analyzedId) {}
+                        List<Map<String,Object>> results, String analyzedId, String automaticRule) {}
     private final CatalogStore store;
     private final AbbreviationStore abbreviations;
     private final PythonAiClient python;
@@ -52,7 +53,24 @@ public class CatalogCleanup {
     private Draft read(String id) {
         Path file=path(id);
         if (!Files.exists(file)) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Limpeza não encontrada.");
-        try { return json.readValue(Files.readString(file,StandardCharsets.UTF_8),Draft.class); }
+        try {
+            var draft=json.readValue(Files.readString(file,StandardCharsets.UTF_8),Draft.class);
+            // A regra antiga podia resolver descrições diferentes com cosseno 1.
+            // Reabre apenas essas decisões na cópia; decisões humanas e SQL publicado são preservados.
+            if (!AUTOMATIC_RULE.equals(draft.automaticRule()) && !applied(draft)) {
+                var representatives=new LinkedHashMap<>(draft.representatives());
+                for (var decision:draft.decisions()) {
+                    if (Boolean.TRUE.equals(decision.get("automatic")) && "KEEP_VERIFIED".equals(decision.get("action")))
+                        representatives.remove(Objects.toString(decision.get("item_id")));
+                }
+                var decisions=new ArrayList<>(draft.decisions());
+                decisions.add(Map.of("action","AUTOMATIC_RULE_CHANGED","at",Instant.now().toString(),"rule",AUTOMATIC_RULE));
+                draft=new Draft(draft.id(),draft.status(),draft.sourceRevision(),draft.createdAt(),draft.skipVerified(),
+                        draft.dictionary(),draft.items(),representatives,decisions,List.of(),null,AUTOMATIC_RULE);
+                save(draft);
+            }
+            return draft;
+        }
         catch (IOException e) { throw storageError(); }
     }
     private String id(Map<String,String> item) { return item.get("catalog_id"); }
@@ -66,17 +84,30 @@ public class CatalogCleanup {
             throw new ResponseStatusException(HttpStatus.CONFLICT,"O dicionário mudou. Inicie uma nova cópia para revisar com as regras atuais.");
     }
     private Map<String,Object> view(Draft draft) {
+        boolean published=applied(draft);
         var result=new LinkedHashMap<String,Object>();
-        result.put("id",draft.id()); result.put("status",applied(draft)?"APPLIED":"DRAFT");
+        result.put("id",draft.id()); result.put("status",published?"APPLIED":"DRAFT");
         result.put("source_revision",draft.sourceRevision()); result.put("created_at",draft.createdAt());
         result.put("skip_verified",draft.skipVerified()); result.put("total",draft.items().size());
         result.put("pending",draft.items().size()-draft.representatives().size());
         long verified=draft.representatives().entrySet().stream().filter(e -> e.getKey().equals(e.getValue())).count();
         result.put("verified",verified); result.put("replaced",draft.representatives().size()-verified);
+        var permanent=new HashMap<String,Map<String,String>>();
+        if (published) store.all().forEach(row -> permanent.put(id(row),row));
+        long awaiting=draft.items().stream().filter(row -> id(row).equals(draft.representatives().get(id(row))))
+                .filter(row -> {
+                    var data=published?permanent.getOrDefault(id(row),row):row;
+                    int passes=Integer.parseInt(data.getOrDefault("cleanup_passes","0"));
+                    if (!published && (!draft.skipVerified() || row.getOrDefault("cleaned_at","").isBlank())) passes++;
+                    return passes<Integer.parseInt(data.getOrDefault("required_cleanup_passes","1"));
+                }).count();
+        result.put("awaiting_verification",awaiting);
         var item=current(draft); result.put("current",item);
         boolean ready=item!=null && id(item).equals(draft.analyzedId());
         result.put("analysis_ready",ready); result.put("results",ready?draft.results():List.of());
         result.put("automatic",null);
+        if (draft.decisions().stream().anyMatch(row -> "AUTOMATIC_RULE_CHANGED".equals(row.get("action"))))
+            result.put("warning","Esta cópia foi atualizada: decisões automáticas da regra antiga voltaram para revisão. Decisões manuais foram preservadas.");
         return result;
     }
     public synchronized List<Map<String,Object>> list() {
@@ -97,7 +128,7 @@ public class CatalogCleanup {
             if (!item.getOrDefault("cleaned_at","").isBlank()) representatives.put(id(item),id(item));
         }
         var draft=new Draft(UUID.randomUUID().toString(),"DRAFT",snapshot.revision(),Instant.now().toString(),skipVerified,
-                abbreviations.snapshot(),snapshot.items(),representatives,new ArrayList<>(),List.of(),null);
+                abbreviations.snapshot(),snapshot.items(),representatives,new ArrayList<>(),List.of(),null,AUTOMATIC_RULE);
         save(draft); return view(draft);
     }
     public synchronized Map<String,Object> get(String id) { return view(read(id)); }
@@ -113,7 +144,7 @@ public class CatalogCleanup {
         var decisions=new ArrayList<>(draft.decisions());
         decisions.add(Map.of("item_id",itemId,"kept_id",kept,"action",action,"automatic",automatic,"at",Instant.now().toString()));
         var updated=new Draft(draft.id(),draft.status(),draft.sourceRevision(),draft.createdAt(),draft.skipVerified(),
-                draft.dictionary(),draft.items(),representatives,decisions,List.of(),null);
+                draft.dictionary(),draft.items(),representatives,decisions,List.of(),null,AUTOMATIC_RULE);
         save(updated); return updated;
     }
     public synchronized Map<String,Object> next(String id) {
@@ -135,14 +166,13 @@ public class CatalogCleanup {
             if (!candidates.containsKey(candidate)) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"A comparação retornou um registro fora dos verificados.");
             @SuppressWarnings("unchecked") var row=(Map<String,Object>)json.readValue(node.toString(),Map.class);
             results.add(row);
-            double score=node.path("similaridade_semantica").asDouble(-1);
-            if (node.path("semantic_exact").asBoolean(false) && Double.isFinite(score) && score>=1.0-1e-7 && score<=1.0) {
+            if (node.path("identical_record").asBoolean(false)) {
                 var updated=resolved(draft,item,candidate,"KEEP_VERIFIED",true);
                 var result=view(updated); result.put("automatic",Map.of("item",item,"kept",candidates.get(candidate))); return result;
             }
         }
         var updated=new Draft(draft.id(),draft.status(),draft.sourceRevision(),draft.createdAt(),draft.skipVerified(),
-                draft.dictionary(),draft.items(),draft.representatives(),draft.decisions(),results,id(item));
+                draft.dictionary(),draft.items(),draft.representatives(),draft.decisions(),results,id(item),AUTOMATIC_RULE);
         save(updated); return view(updated);
     }
     public synchronized Map<String,Object> decide(String id,String currentId,String action,String candidate) {
@@ -162,11 +192,15 @@ public class CatalogCleanup {
         if (!applied(draft)) {
             requireOpen(draft);
             if (current(draft)!=null) throw new ResponseStatusException(HttpStatus.CONFLICT,"Conclua todas as linhas antes de aplicar a limpeza.");
-            store.applyCleanup(draft.id(),draft.sourceRevision(),draft.dictionary().revision(),draft.representatives());
+            var reviewed=new HashSet<String>();
+            for (var item:draft.items()) {
+                if (!draft.skipVerified() || item.getOrDefault("cleaned_at","").isBlank()) reviewed.add(id(item));
+            }
+            store.applyCleanup(draft.id(),draft.sourceRevision(),draft.dictionary().revision(),draft.representatives(),reviewed);
         }
         // O comprovante SQL permite retomar mesmo se o processo cair antes de salvar este arquivo.
         var updated=new Draft(draft.id(),"APPLIED",draft.sourceRevision(),draft.createdAt(),draft.skipVerified(),draft.dictionary(),
-                draft.items(),draft.representatives(),draft.decisions(),draft.results(),draft.analyzedId());
+                draft.items(),draft.representatives(),draft.decisions(),draft.results(),draft.analyzedId(),AUTOMATIC_RULE);
         save(updated); return view(updated);
     }
 }

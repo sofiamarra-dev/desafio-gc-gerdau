@@ -68,18 +68,18 @@ public class CatalogController {
 
     @PostMapping(value="/batches", consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    public Map<String, String> upload(@RequestParam("file") MultipartFile file) throws IOException {
+    public Map<String, String> upload(@RequestParam("file") MultipartFile file, @RequestParam(defaultValue="NORMAL") String mode) throws IOException {
         String filename = Objects.toString(file.getOriginalFilename(), "solicitacoes.xlsx");
         if (filename.length() > 255) throw new IllegalArgumentException("Nome de arquivo muito longo.");
-        return Map.of("id", store.createBatch(filename, parser.parseRequests(file)));
+        return Map.of("id", store.createBatch(filename, parser.parseRequests(file),mode));
     }
 
-    public record TextBatch(String text) {}
+    public record TextBatch(String text,String mode) {}
 
     @PostMapping("/batches/text")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, String> paste(@RequestBody TextBatch input) {
-        return Map.of("id", store.createBatch("Solicitações por texto", textParser.parse(input.text())));
+        return Map.of("id", store.createBatch("Solicitações por texto", textParser.parse(input.text()),input.mode()));
     }
 
     @GetMapping("/batches")
@@ -122,9 +122,14 @@ public class CatalogController {
             String serviceId = (String) item.get("service_id");
             row.add(serviceId == null ? "" : store.get(serviceId).get("codigo_servico"));
             row.add(Objects.toString(item.get("error"), ""));
+            var service=serviceId==null?Map.<String,String>of():store.get(serviceId);
+            row.add(service.getOrDefault("creation_kind",""));
+            row.add(service.getOrDefault("cleanup_passes",""));
+            row.add(service.getOrDefault("required_cleanup_passes",""));
+            row.add(service.getOrDefault("verification_status",""));
             rows.add(row);
         }
-        return workbook("resultado-lote.xlsx", List.of("Linha original", "Situação", "Grupo de Serviço", "Código do Fornecedor", "Código solicitado", "Descrição do Item", "Unidade de medida", "Descrição da Unidade", "Código final", "Erro"), rows);
+        return workbook("resultado-lote.xlsx", List.of("Linha original", "Situação", "Grupo de Serviço", "Código do Fornecedor", "Código solicitado", "Descrição do Item", "Unidade de medida", "Descrição da Unidade", "Código final", "Erro", "Tipo de criação", "Limpezas concluídas", "Limpezas necessárias", "Verificação"), rows);
     }
 
     private static List<String> cells(Map<String, String> item) {

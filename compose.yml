@@ -39,6 +39,16 @@ services:
       retries: 60
     stop_grace_period: 60s
 
+  auth:
+    build: ./auth-token
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/', timeout=5).read()"]
+      interval: 10s
+      timeout: 6s
+      retries: 10
+
   java:
     build:
       context: .
@@ -51,17 +61,20 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-gerdau_local}
       PYTHON_AI_URL: http://ai:8001
       CLEANUP_DIRECTORY: /data/cleanups
+      AUTH_TOKEN_URL: http://auth:5000
     ports:
       - "127.0.0.1:${JAVA_PORT:-8080}:8080"
     volumes:
       - cleanup_data:/data/cleanups
     depends_on:
+      auth:
+        condition: service_healthy
       db:
         condition: service_healthy
       ai:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:8080/api/catalog/status"]
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:8080/api/health"]
       interval: 10s
       timeout: 10s
       start_period: 30s
