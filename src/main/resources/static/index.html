@@ -8,20 +8,15 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="workflow.css">
     <script src="app.js" defer></script>
-</head>
+<link rel="stylesheet" href="design/header.css"><link rel="stylesheet" href="design/theme.css"></head>
 
-<body>
-<header class="header">
-    <div class="container">
-        <h1>Cadastro de Códigos</h1>
-        <p>Geração automática e busca de serviços semelhantes</p>
-    </div>
-</header>
+<body data-screen="index">
+<header class="topo"><a href="menu.html" aria-label="Portal Gerdau"><img class="topo-logo" src="design/logo-gerdau.png" alt="Gerdau"></a><span class="topo-divisor" aria-hidden="true"></span><span class="topo-titulo">Catálogo de serviços</span><a class="botao-voltar" href="catalogo.html">← Voltar</a></header><section class="screen-heading"><div><p>GERENCIAMENTO DE SERVIÇOS</p><h1>Criação unitária</h1></div></section>
 
 <main class="container">
-    <nav class="workflow-nav"><a href="menu.html">← Menu</a><a href="index.html?modo=pesquisa">Pesquisar</a><a href="index.html?modo=unitario">Criação unitária</a><a href="massa.html">Criação em massa</a><a href="/api/catalog/export">Exportar catálogo</a></nav>
+    <nav class="workflow-nav"><a href="catalogo.html">← Catálogo</a><a href="index.html?modo=pesquisa">Pesquisar</a><a href="index.html?modo=unitario">Criação unitária</a><a href="massa.html">Criação em massa</a><a href="/api/catalog/export">Exportar catálogo</a></nav>
 
-    <!-- STATUS DA API -->
+    
     <section class="status-bar">
         <div>
             <strong>Catálogo:</strong>
@@ -33,7 +28,7 @@
             </span>
     </section>
 
-    <!-- IMPORTAÇÃO -->
+    
     <section class="card" id="reference-import">
         <div class="section-header">
             <h2>Importar catálogo</h2>
@@ -65,7 +60,7 @@
         </form>
     </section>
 
-    <!-- FORMULÁRIO -->
+    
     <section class="card" id="unit-generator">
         <div class="section-header">
             <h2>Gerador de código</h2>
@@ -198,7 +193,7 @@
         </div>
     </section>
 
-    <!-- PESQUISA -->
+    
     <section class="card">
         <div class="section-header">
             <h2>Pesquisar códigos semelhantes</h2>
@@ -247,10 +242,10 @@
         </div>
     </section>
 
-    <!-- MENSAGENS -->
+    
     <div id="notice" class="notice" aria-live="polite"></div>
 
-    <!-- RESULTADOS -->
+    
     <section class="card">
         <div class="results-header">
             <h2>Resultados da pesquisa</h2>

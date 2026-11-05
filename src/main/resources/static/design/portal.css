@@ -1,0 +1,324 @@
+
+
+
+
+:root {
+  --azul:        #06376F;  
+  --azul-fundo:  #042B5C;  
+  --azul-claro:  #1E4F9E;  
+  --amarelo:     #FDB913;  
+  --texto:       #0B2F63;  
+  --cinza:       #3C4F6E;  
+}
+
+
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+
+
+body {
+  font-family: 'Ubuntu', 'Segoe UI', system-ui, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;       
+
+  
+  background:
+    radial-gradient(ellipse at 0% 30%,  rgba(30, 79, 158, .55) 0, transparent 45%),
+    radial-gradient(ellipse at 60% 120%, rgba(30, 79, 158, .35) 0, transparent 50%),
+    var(--azul-fundo);
+}
+
+
+body::before {
+  content: "";
+  position: absolute;
+  top: 17vh;
+  right: -6vw;
+  width: 26vw;
+  height: 14vw;
+  background: url("gg-icone.png") no-repeat center / contain;
+  opacity: .22;
+  filter: brightness(.6) sepia(1) hue-rotate(185deg) saturate(4);  
+  pointer-events: none;     
+}
+
+
+
+.topo {
+  position: relative;
+  z-index: 2;
+  height: clamp(84px, 13vh, 118px);   
+  background: #fff;
+  border-bottom-right-radius: 64px;   
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(24px, 5vw, 80px) 0 clamp(150px, 15vw, 230px);  
+  overflow: hidden;                   
+}
+
+
+.topo::before,
+.topo::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+.topo::before {                       
+  width: 580px;  height: 580px;
+  left: -350px;  top: -470px;
+  background: var(--amarelo);
+}
+.topo::after {                        
+  width: 548px;  height: 548px;
+  left: -334px;  top: -454px;
+  background: var(--azul-fundo);
+}
+
+
+.topo-logo {
+  height: clamp(44px, 7.5vh, 66px);
+  width: auto;
+  position: relative;                 
+  z-index: 1;
+}
+
+
+.botao-voltar {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 28px;
+  border: 3px solid var(--amarelo);
+  border-radius: 999px;               
+  background: #fff;
+  color: var(--azul);
+  font-size: 18px;
+  font-weight: 600;
+  text-decoration: none;              
+  transition: background .15s;
+}
+.botao-voltar:hover {
+  background: #FFF6D6;                
+}
+.botao-voltar svg {
+  width: 26px;
+  height: 26px;
+  stroke: currentColor;               
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+
+.conteudo {
+  position: relative;
+  z-index: 1;
+  flex: 1;                            
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(24px, 5vh, 56px);        
+  padding: 0 4vw 6vh;
+}
+
+.titulo-bloco {
+  text-align: center;
+}
+
+
+.divisor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.divisor .linha {
+  width: clamp(90px, 11vw, 180px);
+  height: 3px;
+  background: var(--amarelo);
+}
+.divisor-gg {
+  height: clamp(22px, 3.6vh, 34px);
+  width: auto;
+}
+
+
+h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(34px, 6vh, 56px);
+  font-weight: 500;
+  letter-spacing: -.5px;
+}
+.destaque {
+  color: var(--amarelo);
+  font-weight: 700;
+}
+
+
+
+.cartoes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);   
+  gap: clamp(18px, 2.4vw, 36px);           
+  width: min(1280px, 100%);
+}
+
+.cartao {
+  position: relative;                 
+  overflow: hidden;                   
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 2vh, 20px);
+  min-height: clamp(210px, 33vh, 290px);
+  padding: clamp(18px, 3vh, 30px) clamp(20px, 2.2vw, 32px);
+  background: linear-gradient(160deg, #fff 55%, #E8EEF8 100%);
+  border-radius: 28px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, .28);
+  color: var(--texto);
+  text-decoration: none;              
+  transition: transform .18s, box-shadow .18s;
+}
+.cartao:hover {                       
+  transform: translateY(-6px);
+  box-shadow: 0 20px 36px rgba(0, 0, 0, .35);
+}
+.cartao:focus-visible {               
+  outline: 4px solid var(--amarelo);
+  outline-offset: 3px;
+}
+
+
+.cartao::after {
+  content: "";
+  position: absolute;
+  right: -62px;
+  bottom: -92px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: var(--azul);
+  border: 11px solid var(--amarelo);
+}
+
+
+.cartao-topo {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+
+.icone-caixa {
+  flex: none;                         
+  width: clamp(56px, 9vh, 76px);
+  height: clamp(56px, 9vh, 76px);
+  display: grid;
+  place-items: center;                
+  background: var(--azul);
+  border-radius: 18px;
+}
+.icone-caixa svg {
+  width: 56%;
+  height: 56%;
+  stroke: #fff;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+.cartao h2 {
+  margin: 0;
+  font-size: clamp(20px, 3.4vh, 28px);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+
+.cartao p {
+  margin: 0;
+  font-size: clamp(15px, 2.4vh, 19px);
+  line-height: 1.4;
+  color: var(--cinza);
+  max-width: 92%;
+}
+
+
+.seta {
+  margin-top: auto;
+  position: relative;                 
+  z-index: 1;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--amarelo);
+  transition: transform .18s;
+}
+.cartao:hover .seta {                 
+  transform: translateX(6px);
+}
+.seta svg {
+  width: 22px;
+  height: 22px;
+  stroke: var(--azul);
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+
+.onda-rodape {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 58vw;
+  height: 9vh;
+  background: #fff;
+  border-top: 7px solid var(--amarelo);
+  border-top-left-radius: 100% 100%;  
+  pointer-events: none;
+}
+
+
+
+@media (max-width: 900px) {
+  body {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;                   
+  }
+  .topo {
+    padding-left: 130px;
+  }
+  .cartoes {
+    grid-template-columns: 1fr;       
+  }
+  .onda-rodape {
+    display: none;
+  }
+}

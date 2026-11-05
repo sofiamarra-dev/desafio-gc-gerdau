@@ -3,6 +3,7 @@ async function databaseStatus() {
   const response = await fetch('/api/catalog/status');
   if (!response.ok) throw new Error('Não foi possível acessar o PostgreSQL. Verifique se o banco e o Java estão ativos.');
   const data = await response.json();
+  document.getElementById('database-count').textContent = Number(data.size).toLocaleString('pt-BR');
   document.getElementById('database-state').textContent = `${Number(data.size).toLocaleString('pt-BR')} serviços salvos no banco.`;
 }
 document.getElementById('migrate-catalog').addEventListener('click', async (event) => {

@@ -477,3 +477,7 @@ $('add-code-button').addEventListener('click', async () => {
     finally { button.disabled = false; }
 });
 refreshStatus();
+
+const screenTitles = {unitario: 'Criação unitária', pesquisa: 'Pesquisa de códigos', base: 'Importar catálogo'};
+document.querySelector('.screen-heading h1').textContent = screenTitles[screenMode] || 'Catálogo de serviços';
+document.title = `${screenTitles[screenMode] || 'Catálogo'} | Gerdau`;

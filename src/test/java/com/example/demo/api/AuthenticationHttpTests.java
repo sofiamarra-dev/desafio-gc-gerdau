@@ -46,7 +46,10 @@ class AuthenticationHttpTests {
         var page=get("/menu.html");assertEquals(302,page.statusCode());assertEquals("/login.html",URI.create(page.headers().firstValue("Location").orElseThrow()).getPath());
         assertEquals(200,get("/login.html").statusCode());assertEquals(200,get("/api/health").statusCode());
         var original=client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/token-login.html")).GET().build(),HttpResponse.BodyHandlers.ofByteArray());
-        assertArrayEquals(Files.readAllBytes(Path.of("auth-token/index.html")),original.body());
+        String originalHtml=Files.readString(Path.of("auth-token/index.html"));
+        String presentedHtml=new String(original.body(),java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(originalHtml.substring(originalHtml.indexOf("<script>")),presentedHtml.substring(presentedHtml.indexOf("<script>")),"O JavaScript original do token deve ser preservado");
+        for(String asset:List.of("/design/login.css","/design/token-theme.css","/design/logo-gerdau.png")) assertEquals(200,get(asset).statusCode(),asset);
     }
     @Test void normalUserCanUseCatalogButCannotAccessEitherAdminFeature() throws Exception {
         login("comum@gmail.com");

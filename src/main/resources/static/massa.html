@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><script src="session.js"></script><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Criação em massa</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="workflow.css"><script src="massa.js" defer></script></head>
-<body>
-<header class="header"><div class="container"><h1>Criação em massa</h1><p>Escolha como cadastrar e revisar suas solicitações.</p></div></header>
+<head><script src="session.js"></script><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Criação em massa</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="workflow.css"><script src="massa.js" defer></script><link rel="stylesheet" href="design/header.css"><link rel="stylesheet" href="design/theme.css"></head>
+<body data-screen="massa">
+<header class="topo"><a href="menu.html" aria-label="Portal Gerdau"><img class="topo-logo" src="design/logo-gerdau.png" alt="Gerdau"></a><span class="topo-divisor" aria-hidden="true"></span><span class="topo-titulo">Catálogo de serviços</span><a class="botao-voltar" href="catalogo.html">← Voltar</a></header><section class="screen-heading"><div><p>GERENCIAMENTO DE SERVIÇOS</p><h1>Criação em massa</h1></div></section>
 <main class="container">
-  <nav class="workflow-nav"><a href="menu.html">← Menu</a><a href="index.html?modo=unitario">Criação unitária</a><a href="/api/catalog/export">Exportar catálogo</a></nav>
+  <nav class="workflow-nav"><a href="catalogo.html">← Catálogo</a><a href="index.html?modo=unitario">Criação unitária</a><a href="/api/catalog/export">Exportar catálogo</a></nav>
   <section class="card"><h2>Enviar solicitações</h2><p>O envio cria um lote pendente. Ao revisar, somente registros idênticos reutilizam automaticamente o serviço existente, sem criar outro cadastro. A nota dos embeddings e o indicador “contem” servem para revisão e não acionam essa regra.</p>
     <label for="creation-mode"><strong>Forma de criação</strong></label>
     <select id="creation-mode" aria-describedby="creation-mode-help"><option value="NORMAL">Normal — revisar cada solicitação</option><option value="QUICK">Rápida — revisar apenas possíveis correspondências</option></select>

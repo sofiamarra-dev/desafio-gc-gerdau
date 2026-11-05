@@ -21,15 +21,23 @@
       const session=await state();
       if(!session.authenticated) { location.replace('/login.html');return; }
       document.querySelectorAll('[data-admin-only]').forEach(element=>{element.hidden=!session.admin;});
-      const panel=document.createElement('div');panel.style.cssText='display:flex;justify-content:flex-end;align-items:center;gap:12px;padding:12px 24px;font:14px system-ui;background:#eef3fa';
-      const label=document.createElement('span');label.textContent=`${session.email} · ${session.admin?'Administrador':'Usuário'}`;
-      const logout=document.createElement('button');logout.type='button';logout.textContent='Sair';
+      const panel=document.createElement('div');panel.className='session-user';panel.setAttribute('aria-label','Conta conectada');
+      const avatar=document.createElement('span');avatar.className='session-avatar';avatar.setAttribute('aria-hidden','true');
+      avatar.textContent=session.email.split('@')[0].slice(0,2).toUpperCase();
+      const details=document.createElement('div');details.className='session-details';
+      const label=document.createElement('span');label.className='session-email';label.textContent=session.email;label.title=session.email;
+      const role=document.createElement('span');role.className='session-role';role.textContent=session.admin?'Administrador':'Usuário';
+      const error=document.createElement('span');error.className='session-error';error.setAttribute('role','status');
+      const logout=document.createElement('button');logout.type='button';logout.className='session-logout';logout.setAttribute('aria-label','Sair da conta');
+      logout.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H5v16h4M11 12h10M17 8l4 4-4 4"/></svg><span>Sair</span>';
       logout.addEventListener('click',async()=>{
         logout.disabled=true;
         try { const r=await fetch('/api/auth/logout',{method:'POST'});if(!r.ok) throw Error();location.replace('/login.html'); }
-        catch (_) { logout.disabled=false;label.textContent='Não foi possível sair. Tente novamente.'; }
+        catch (_) { logout.disabled=false;error.textContent='Não foi possível sair. Tente novamente.'; }
       });
-      panel.append(label,logout);document.body.prepend(panel);
+      details.append(label,role,error);panel.append(avatar,details,logout);
+      const header=document.querySelector('.topo');
+      if(header) header.append(panel); else document.body.prepend(panel);
     } catch (_) { location.replace('/login.html'); }
   });
 })();

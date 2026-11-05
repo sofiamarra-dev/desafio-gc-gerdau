@@ -21,6 +21,7 @@ public class SecurityConfiguration {
 
     private static final String[] PUBLIC_ROUTES = {
             "/login.html",
+            "/design/**",
             "/login-bridge.js",
             "/token-login.html",
             "/enviar",

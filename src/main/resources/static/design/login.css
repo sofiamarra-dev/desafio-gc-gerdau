@@ -1,0 +1,243 @@
+
+
+
+
+:root {
+  --azul:        #06376F;  
+  --azul-escuro: #052b59;  
+  --texto:       #0B2F63;  
+  --cinza:       #5A6B85;  
+  --borda:       #C9D3E2;  
+  --fundo:       #EEF2F7;  
+}
+
+
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;   
+  margin: 0;      
+}
+
+
+
+body {
+  font-family: 'Ubuntu', 'Segoe UI', system-ui, Arial, sans-serif; 
+  color: var(--texto);
+
+  
+  background:
+    radial-gradient(circle at 0% 0%,     #E3EAF4 0, transparent 28%),
+    radial-gradient(circle at 100% 100%, #E3EAF4 0, transparent 30%),
+    var(--fundo);
+
+  display: flex;
+  align-items: center;       
+  justify-content: center;   
+  padding: 2vh 3vw;          
+  overflow: hidden;          
+}
+
+
+
+.cartao-login {
+  display: flex;                    
+  width: min(1180px, 100%);         
+  height: min(640px, 86vh);         
+  min-height: 480px;                
+
+  background: #fff;
+  border-radius: 14px;              
+  overflow: hidden;                 
+  box-shadow: 0 20px 50px rgba(11, 47, 99, .14);  
+}
+
+
+
+
+
+.lado-formulario {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  
+  padding: clamp(24px, 5vh, 56px) clamp(32px, 4vw, 64px);
+}
+
+
+.formulario {
+  width: 100%;
+  max-width: 470px;
+}
+
+
+h1 {
+  margin: 0 0 8px;
+  font-size: clamp(28px, 4.4vh, 36px);  
+  font-weight: 700;                     
+}
+
+
+.subtitulo {
+  margin: 0 0 clamp(20px, 4vh, 34px);   
+  font-size: clamp(15px, 2.3vh, 18px);
+  color: var(--cinza);
+}
+
+
+
+
+.campo {
+  position: relative;
+  margin-bottom: 18px;      
+}
+
+
+.campo svg {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);   
+  width: 22px;
+  height: 22px;
+  stroke: var(--cinza);          
+  fill: none;                    
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+.campo input {
+  width: 100%;
+  height: clamp(48px, 7.2vh, 58px);
+  padding: 0 18px 0 62px;       
+  border: 1.5px solid var(--borda);
+  border-radius: 8px;
+  font: inherit;                
+  font-size: 17px;
+  color: var(--texto);
+  background: #fff;
+  outline: none;                
+  transition: border-color .15s, box-shadow .15s;  
+}
+
+
+.campo input::placeholder {
+  color: var(--cinza);
+}
+
+
+.campo input:focus {
+  border-color: var(--azul);
+  box-shadow: 0 0 0 3px rgba(6, 55, 111, .15);
+}
+
+
+
+
+.botao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;                    
+  width: 100%;
+  height: clamp(48px, 7.2vh, 58px);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 500;
+  cursor: pointer;              
+  transition: background .15s, color .15s;
+}
+
+
+.botao svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+.botao-principal {
+  margin-top: 8px;
+  border: 0;
+  background: var(--azul);
+  color: #fff;
+}
+.botao-principal:hover {            
+  background: var(--azul-escuro);
+}
+
+
+.botao-contorno {
+  margin-top: 20px;
+  border: 1.5px solid var(--azul);
+  background: #fff;
+  color: var(--azul);
+}
+.botao-contorno:hover {            
+  background: #EEF3FA;
+}
+
+
+.botao:focus-visible {
+  outline: 3px solid rgba(6, 55, 111, .35);
+  outline-offset: 2px;
+}
+
+
+
+.lado-marca {
+  flex: 1;                       
+  display: flex;
+  align-items: center;           
+  justify-content: center;       
+  padding: 32px;
+
+  
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 6px),
+    linear-gradient(135deg, #06376F 0%, #042E5E 60%, #06376F 100%);
+}
+
+
+.lado-marca img {
+  width: min(100%, 400px);
+  height: auto;
+  display: block;
+}
+
+
+
+@media (max-width: 820px) {
+  .cartao-login {
+    flex-direction: column-reverse;  
+    height: auto;
+  }
+  .lado-marca {
+    min-height: 160px;
+    padding: 24px;
+  }
+  .lado-marca img {
+    width: min(70%, 240px);
+  }
+  .lado-formulario {
+    padding: 32px 24px;
+  }
+  h1 {
+    font-size: 28px;
+  }
+  body {
+    overflow: auto;                  
+  }
+}

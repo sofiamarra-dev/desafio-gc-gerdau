@@ -37,6 +37,7 @@ class AbbreviationHttpTests {
   assertEquals("pintor",json.readTree(call("POST","/api/abbreviations/preview","{\"text\":\"pintor HE\"}").body()).path("activity").asString());
   var html=call("GET","/siglas.html","");
   assertEquals(200,html.statusCode());assertTrue(html.body().contains("Dicionário de siglas"));
-  assertTrue(call("GET","/menu.html","").body().contains("siglas.html"));
+  assertTrue(call("GET","/menu.html","").body().contains("catalogo.html"));
+  assertTrue(call("GET","/catalogo.html","").body().contains("siglas.html"));
  }
 }

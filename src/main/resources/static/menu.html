@@ -1,22 +1,87 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><script src="session.js"></script><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Catálogo de serviços</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="workflow.css"><script src="menu.js" defer></script></head>
-<body class="menu-page">
-<header class="brand-header"><div class="container"><img class="brand-logo" src="gerdau-logo.png" alt="Gerdau"><span>Catálogo de serviços · protótipo</span></div></header>
-<main class="container">
-  <div class="menu-intro"><h1>Encontre seus códigos aqui</h1><p>Pesquise, cadastre e revise solicitações em um único lugar.</p></div>
-  <nav class="menu-grid cleanup-menu" aria-label="Menu principal">
-    <a class="menu-card" href="index.html?modo=pesquisa"><span>01</span><h2>Pesquisa de código</h2><p>Encontre serviços existentes e descrições semelhantes.</p><strong>Pesquisar →</strong></a>
-    <a class="menu-card" href="index.html?modo=unitario"><span>02</span><h2>Criação unitária</h2><p>Monte uma descrição, consulte similares e confirme um novo cadastro.</p><strong>Criar serviço →</strong></a>
-    <a class="menu-card" href="massa.html"><span>03</span><h2>Criação em massa</h2><p>Envie solicitações em Excel ou texto e decida o destino de cada linha.</p><strong>Importar e revisar →</strong></a>
-    <a class="menu-card" data-admin-only hidden href="limpeza.html"><span>04</span><h2>Limpeza de dados</h2><p>Revise os registros do banco em uma cópia e escolha quais manter.</p><strong>Limpar catálogo →</strong></a>
-  </nav>
-  <section class="card setup-card" data-admin-only hidden><h2>Dicionário de siglas</h2><p>Organize significados e formas de escrita. Teste como uma descrição será separada na busca.</p><a class="btn btn-primary" href="siglas.html">Gerenciar siglas →</a></section>
-  <section class="card setup-card"><h2>Catálogo de referência</h2><p id="database-state" aria-live="polite">Verificando banco…</p>
-    <p>Na primeira utilização, recupere o catálogo anterior do Python ou importe a base de referência. Planilhas de solicitações devem ir para Criação em massa.</p>
-    <button class="btn btn-primary" id="migrate-catalog" type="button">Recuperar catálogo anterior</button>
-    <a class="btn" href="index.html?modo=base">Importar base de referência</a>
-    <a class="btn" href="/api/catalog/export">Exportar catálogo Excel</a>
-    <p id="menu-notice" role="status"></p>
-  </section>
-</main></body></html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portal Gerdau de Códigos e Contratos</title>
+
+  
+  <link rel="stylesheet" href="design/portal.css">
+<link rel="stylesheet" href="design/theme.css"><script src="session.js"></script></head>
+
+<body class="portal-page">
+
+  
+  <header class="topo">
+    <img class="topo-logo" src="design/logo-gerdau.png" alt="Gerdau">
+
+    
+    <a class="botao-voltar" href="catalogo.html">Catálogo →</a>
+  </header>
+
+  
+  <main class="conteudo">
+
+    
+    <div class="titulo-bloco">
+      <div class="divisor">
+        <span class="linha"></span>
+        <img class="divisor-gg" src="design/gg-icone.png" alt="">
+        <span class="linha"></span>
+      </div>
+      <h1>Encontre seus <span class="destaque">códigos</span> aqui</h1>
+    </div>
+
+    
+    <nav class="cartoes">
+
+      
+      <a class="cartao" href="index.html?modo=pesquisa">
+        <div class="cartao-topo">
+          <div class="icone-caixa">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
+          </div>
+          <h2>Pesquisa<br>de código</h2>
+        </div>
+        <p>Aqui você consegue encontrar todos os códigos e códigos similares</p>
+        <span class="seta">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg>
+        </span>
+      </a>
+
+      
+      <a class="cartao" href="catalogo.html">
+        <div class="cartao-topo">
+          <div class="icone-caixa">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></svg>
+          </div>
+          <h2>Formulário</h2>
+        </div>
+        <p>Criar ou utilizar formulários para criação de contratos ou novos códigos</p>
+        <span class="seta">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg>
+        </span>
+      </a>
+
+      
+      <a class="cartao" aria-disabled="true" tabindex="-1">
+        <div class="cartao-topo">
+          <div class="icone-caixa">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+          </div>
+          <h2>Dashboard</h2>
+        </div>
+        <p>Em planejamento · disponível em uma próxima etapa</p>
+        <span class="seta">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg>
+        </span>
+      </a>
+
+    </nav>
+  </main>
+
+  
+  <div class="onda-rodape" aria-hidden="true"></div>
+
+</body>
+</html>

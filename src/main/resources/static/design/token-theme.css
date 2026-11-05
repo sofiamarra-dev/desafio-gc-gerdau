@@ -1,0 +1,8 @@
+:root { color-scheme:light; --fundo:#fff; --papel:#fff; --tinta:#0b2f63; --suave:#5a6b85; --linha:#c9d3e2; --acento:#06376f; --ok:#17794f; --erro:#b3261e; }
+body { background:#fff; padding:30px; font-family:'Ubuntu','Segoe UI',system-ui,Arial,sans-serif; }
+main { max-width:420px; border:0; border-radius:0; padding:24px 12px; }
+h1 { font:600 clamp(24px,4vw,30px)/1.2 'Segoe UI',sans-serif; margin-bottom:14px; }
+button { border-radius:999px; background:#06376f; padding:14px; }
+input { background:#fff; color:#0b2f63; }
+button.link { border-radius:0; }
+input:focus-visible,button:focus-visible { outline-color:#fdb913; }

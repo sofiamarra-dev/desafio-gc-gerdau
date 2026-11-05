@@ -1,0 +1,114 @@
+
+
+
+
+:root {
+  --cabecalho-azul:       #06376F;  
+  --cabecalho-azul-fundo: #052C5E;  
+  --cabecalho-amarelo:    #FDB913;  
+  --cabecalho-texto:      #0B2F63;  
+  --cabecalho-traco:      #B9C6DA;  
+  --cabecalho-hover:      #E3ECF8;  
+}
+
+
+
+.topo {
+  position: relative;
+  z-index: 2;
+  flex: none;                         
+  height: clamp(60px, 9.5vh, 84px);   
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 clamp(24px, 4vw, 64px) 0 clamp(130px, 11.5vw, 190px);  
+  background: #fff;
+  border-bottom: 4px solid var(--cabecalho-amarelo);
+  overflow: hidden;                   
+  font-family: 'Ubuntu', 'Segoe UI', system-ui, Arial, sans-serif;
+}
+.topo,
+.topo * {
+  box-sizing: border-box;
+}
+
+
+
+.topo::before,
+.topo::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+.topo::before {                       
+  width: 440px;  height: 440px;
+  left: -285px;  top: -330px;
+  background: var(--cabecalho-amarelo);
+}
+.topo::after {                        
+  width: 412px;  height: 412px;
+  left: -271px;  top: -316px;
+  background: var(--cabecalho-azul-fundo);
+}
+
+
+
+.topo-logo {
+  height: clamp(36px, 6vh, 52px);
+  width: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.topo-divisor {                       
+  width: 2px;
+  height: clamp(26px, 4.5vh, 38px);
+  background: var(--cabecalho-traco);
+}
+
+.topo-titulo {                        
+  font-size: clamp(20px, 3.2vh, 28px);
+  font-weight: 500;
+  color: var(--cabecalho-texto);
+}
+
+
+
+.botao-voltar {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 26px;
+  border: 2px solid var(--cabecalho-azul);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--cabecalho-azul);
+  font-size: 17px;
+  font-weight: 600;
+  text-decoration: none;              
+  transition: background .15s;
+}
+.botao-voltar:hover {
+  background: var(--cabecalho-hover);
+}
+.botao-voltar svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;               
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+
+@media (max-width: 900px) {
+  .topo {
+    padding-left: 110px;
+  }
+  .topo-titulo {
+    display: none;                    
+  }
+}
