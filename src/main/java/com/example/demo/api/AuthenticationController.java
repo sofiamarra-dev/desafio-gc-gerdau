@@ -1,75 +1,245 @@
 package com.example.demo.api;
 
-import com.example.demo.security.*;
-import jakarta.servlet.http.*;
-import org.springframework.http.*;
+import com.example.demo.security.AdminAccounts;
+import com.example.demo.security.TokenGateway;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfToken;
-import org.springframework.web.bind.annotation.*;
+
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
-import java.util.*;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 
 @RestController
 public class AuthenticationController {
-    private static final String PENDING="TOKEN_PENDING_EMAIL";
-    private final TokenGateway gateway;
-    private final SecurityContextRepository repository;
-    public AuthenticationController(TokenGateway gateway,SecurityContextRepository repository) { this.gateway=gateway;this.repository=repository; }
-    public record Email(String email) {}
-    public record Code(String email,String codigo) {}
-    private String email(String email) {
-        String normalized=Objects.toString(email,"").strip().toLowerCase(Locale.ROOT);
-        if (normalized.length()>254 || !normalized.matches("[a-z0-9._%+-]+@gmail\\.com")) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Informe um Gmail válido.");
-        return normalized;
+
+    private static final String PENDING_EMAIL_ATTRIBUTE = "TOKEN_PENDING_EMAIL";
+
+    private final TokenGateway tokenGateway;
+    private final SecurityContextRepository securityRepository;
+
+    public AuthenticationController(TokenGateway tokenGateway, SecurityContextRepository securityRepository) {
+        this.tokenGateway = tokenGateway;
+        this.securityRepository = securityRepository;
     }
-    private void sameOrigin(HttpServletRequest request) {
-        String origin=request.getHeader("Origin");
-        String expected=request.getScheme()+"://"+request.getServerName();
-        int port=request.getServerPort();if(port!=80 && port!=443) expected+=":"+port;
-        if ("cross-site".equals(request.getHeader("Sec-Fetch-Site")) || origin!=null && !origin.equals(expected))
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Origem da solicitação não permitida.");
-    }
-    @PostMapping(value="/enviar",consumes=MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> send(@RequestBody Email input,HttpServletRequest request) {
-        sameOrigin(request);String email=email(input.email());var session=request.getSession(true);
-        synchronized(session) {
-            var reply=gateway.send(email);
-            if(reply.status()==200 && reply.body().path("ok").asBoolean(false)) session.setAttribute(PENDING,email);
-            return ResponseEntity.status(reply.status()).body(reply.body());
-        }
-    }
-    @PostMapping(value="/verificar",consumes=MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> verify(@RequestBody Code input,HttpServletRequest request,HttpServletResponse response) {
-        sameOrigin(request);String email=email(input.email());var session=request.getSession(false);
-        String code=Objects.toString(input.codigo(),"").strip();
-        if(session==null) return ResponseEntity.status(400).body(Map.of("ok",false,"msg","Solicite um código neste navegador primeiro."));
-        synchronized(session) {
-            if (!email.equals(session.getAttribute(PENDING)) || !code.matches("[0-9]{10}"))
-                return ResponseEntity.status(400).body(Map.of("ok",false,"msg","Confira o e-mail e o código solicitado neste navegador."));
-            var reply=gateway.verify(email,code);
-            if(reply.status()==200 && reply.body().path("ok").asBoolean(false)) {
-                request.changeSessionId();session.removeAttribute(PENDING);
-                var authorities=List.of(new SimpleGrantedAuthority(AdminAccounts.isAdmin(email)?"ROLE_ADMIN":"ROLE_USER"));
-                var context=SecurityContextHolder.createEmptyContext();
-                context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(email,null,authorities));
-                SecurityContextHolder.setContext(context);repository.saveContext(context,request,response);
+
+
+    public record EmailRequest(String email) {}
+
+    public record CodeRequest(String email, String codigo) {}
+
+    @PostMapping(value = "/enviar", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> sendCode(@RequestBody EmailRequest input, HttpServletRequest request) {
+
+        validateRequestOrigin(request);
+
+        String email = normalizeAndValidateEmail(input.email());
+
+        // recupera a sessão ou cria uma nova.
+        HttpSession session = request.getSession(true);
+
+        synchronized (session) {
+
+            // faz uma requisição pra parte em python de "/enviar"
+            TokenGateway.Reply reply = tokenGateway.send(email);
+
+            // passa o email que está entrando
+            if (wasSuccessful(reply)) {
+                session.setAttribute(PENDING_EMAIL_ATTRIBUTE, email);
             }
-            return ResponseEntity.status(reply.status()).body(reply.body());
+
+            return ResponseEntity
+                    .status(reply.status())
+                    .body(reply.body());
         }
     }
-    @GetMapping("/api/auth/status") public Map<String,Object> status(HttpServletRequest request) {
-        var auth=SecurityContextHolder.getContext().getAuthentication();
-        boolean authenticated=auth!=null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal());
-        var result=new LinkedHashMap<String,Object>();result.put("authenticated",authenticated);
-        result.put("email",authenticated?auth.getName():"");result.put("admin",authenticated && AdminAccounts.isAdmin(auth.getName()));
-        Object token=request.getAttribute(CsrfToken.class.getName());
-        if(token instanceof CsrfToken csrf) { result.put("csrfToken",csrf.getToken());result.put("csrfHeader",csrf.getHeaderName()); }
+
+    @PostMapping(value = "/verificar", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> verifyCode(@RequestBody CodeRequest input, HttpServletRequest request, HttpServletResponse response) {
+
+        validateRequestOrigin(request);
+
+        String email = normalizeAndValidateEmail(input.email());
+        String code = Objects.toString(input.codigo(), "").strip();
+
+        HttpSession session = request.getSession(false);
+
+
+        if (session == null) {
+            return invalidRequest("Solicite um código neste navegador primeiro.");
+        }
+
+        synchronized (session) {
+            Object pendingEmail = session.getAttribute(PENDING_EMAIL_ATTRIBUTE);
+
+            boolean matchesPendingEmail = email.equals(pendingEmail);
+            boolean hasValidCodeFormat = code.matches("[0-9]{10}");
+
+            if (!matchesPendingEmail || !hasValidCodeFormat) {
+                return invalidRequest("Confira o e-mail e o código solicitado neste navegador.");
+            }
+
+            TokenGateway.Reply reply = tokenGateway.verify(email, code);
+
+            if (wasSuccessful(reply)) {
+                authenticateUser(email, session, request, response);
+            }
+
+            return ResponseEntity
+                    .status(reply.status())
+                    .body(reply.body());
+        }
+    }
+
+    @GetMapping("/api/auth/status")
+    public Map<String, Object> authenticationStatus(HttpServletRequest request) {
+
+        Authentication authentication = SecurityContextHolder
+                .getContext()
+                .getAuthentication();
+
+        boolean authenticated = authentication != null
+                        && authentication.isAuthenticated()
+                        && !"anonymousUser".equals(authentication.getPrincipal());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        result.put("authenticated", authenticated);
+
+        result.put("email", authenticated ? authentication.getName() : "");
+
+        result.put("admin", authenticated && AdminAccounts.isAdmin(authentication.getName()));
+
+        Object csrfAttribute = request.getAttribute(CsrfToken.class.getName());
+
+        if (csrfAttribute instanceof CsrfToken csrfToken) {
+            result.put("csrfToken", csrfToken.getToken());
+            result.put("csrfHeader", csrfToken.getHeaderName());
+        }
+
         return result;
     }
+
+    @GetMapping("/api/health")
+    public Map<String, String> health() {
+        return Map.of("status", "UP");
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<?> failure(ResponseStatusException e) { return ResponseEntity.status(e.getStatusCode()).body(Map.of("ok",false,"msg",Objects.toString(e.getReason(),"Não foi possível concluir o acesso."))); }
-    @GetMapping("/api/health") public Map<String,String> health() { return Map.of("status","UP"); }
+    public ResponseEntity<?> handleAuthenticationError(ResponseStatusException exception) {
+
+        String message = Objects.toString(exception.getReason(), "Não foi possível concluir o acesso.");
+
+        return ResponseEntity
+                .status(exception.getStatusCode())
+                .body(Map.of(
+                        "ok", false,
+                        "msg", message
+                ));
+    }
+
+    private String normalizeAndValidateEmail(String receivedEmail) {
+        String email = Objects.toString(receivedEmail, "")
+                .strip()
+                .toLowerCase(Locale.ROOT);
+
+        boolean exceedsMaximumLength = email.length() > 254;
+
+        boolean isValidGmail = email.matches("[a-z0-9._%+-]+@gmail\\.com");
+
+        if (exceedsMaximumLength || !isValidGmail) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Informe um Gmail válido."
+            );
+        }
+
+        return email;
+    }
+
+    private void validateRequestOrigin(HttpServletRequest request) {
+        String receivedOrigin = request.getHeader("Origin");
+
+        String expectedOrigin = request.getScheme() + "://" + request.getServerName();
+
+        int port = request.getServerPort();
+
+        if (port != 80 && port != 443) {
+            expectedOrigin += ":" + port;
+        }
+
+        boolean isCrossSite = "cross-site".equals(request.getHeader("Sec-Fetch-Site"));
+
+        boolean hasDifferentOrigin = receivedOrigin != null && !receivedOrigin.equals(expectedOrigin);
+
+        if (isCrossSite || hasDifferentOrigin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Origem da solicitação não permitida.");
+        }
+    }
+
+    private boolean wasSuccessful(TokenGateway.Reply reply) {
+        return reply.status() == 200
+                && reply.body().path("ok").asBoolean(false);
+    }
+
+    private void authenticateUser(String email, HttpSession session, HttpServletRequest request, HttpServletResponse response) {
+
+
+        request.changeSessionId();
+
+        session.removeAttribute(PENDING_EMAIL_ATTRIBUTE);
+
+        // aqui verifica se o email que tá entrando é adm
+        String role = AdminAccounts.isAdmin(email) ? "ROLE_ADMIN" : "ROLE_USER";
+
+        List<SimpleGrantedAuthority> authorities = List.of(
+                new SimpleGrantedAuthority(role)
+        );
+
+        Authentication authentication =
+                UsernamePasswordAuthenticationToken.authenticated(
+                        email,
+                        null,
+                        authorities
+                );
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+
+        context.setAuthentication(authentication);
+
+        SecurityContextHolder.setContext(context);
+
+        securityRepository.saveContext(context, request, response);
+    }
+
+    private ResponseEntity<?> invalidRequest(String message) {
+        return ResponseEntity
+                .badRequest()
+                .body(Map.of(
+                        "ok", false,
+                        "msg", message
+                ));
+    }
 }

@@ -14,26 +14,37 @@ public class TokenGateway {
     private final RestTemplate rest;
     private final String url;
     private final ObjectMapper json;
+
     public TokenGateway(@Value("${auth.token.url:http://127.0.0.1:5000}") String url,ObjectMapper json) {
-        var factory=new SimpleClientHttpRequestFactory();factory.setConnectTimeout(10000);factory.setReadTimeout(20000);
-        this.rest=new RestTemplate(factory);this.url=url.replaceAll("/+$","");this.json=json;
+        var factory = new SimpleClientHttpRequestFactory();factory.setConnectTimeout(10000);factory.setReadTimeout(20000);
+        this.rest=new RestTemplate(factory);
+        this.url=url.replaceAll("/+$","");
+        this.json=json;
     }
+
     public Reply send(String email) { return post("/enviar",Map.of("email",email)); }
+
     public Reply verify(String email,String code) { return post("/verificar",Map.of("email",email,"codigo",code)); }
+
     private Reply post(String path,Map<String,String> fields) {
         try {
-            var headers=new HttpHeaders();headers.setContentType(MediaType.APPLICATION_JSON);
-            var response=rest.postForEntity(url+path,new HttpEntity<>(json.writeValueAsString(fields),headers),String.class);
+
+            var headers = new HttpHeaders();headers.setContentType(MediaType.APPLICATION_JSON);
+            var response = rest.postForEntity(url+path,new HttpEntity<>(json.writeValueAsString(fields),headers),String.class);
+
             return reply(response.getStatusCode().value(),response.getBody());
+
         } catch (RestClientResponseException e) {
             return reply(e.getStatusCode().value(),e.getResponseBodyAsString());
         } catch (RestClientException e) { return unavailable(); }
     }
     private Reply reply(int status,String body) {
         try {
-            var parsed=json.readTree(body);
-            return parsed!=null && parsed.isObject()?new Reply(status,parsed):unavailable();
+            var parsed = json.readTree(body);
+            return parsed != null && parsed.isObject() ? new Reply(status,parsed):unavailable();
         } catch (RuntimeException invalid) { return unavailable(); }
     }
-    private Reply unavailable() { return new Reply(502,json.valueToTree(Map.of("ok",false,"msg","O serviço de envio de códigos está indisponível. Tente novamente."))); }
+    private Reply unavailable() {
+        return new Reply(502,json.valueToTree(Map.of("ok",false,"msg","O serviço de envio de códigos está indisponível. Tente novamente.")));
+    }
 }
