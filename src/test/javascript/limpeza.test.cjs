@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const root = path.resolve(__dirname, '../../main/resources/static');
-const html = fs.readFileSync(path.join(root,'limpeza.html'),'utf8');
+const html = fs.readFileSync(path.join(root,'limpeza-legada.html'),'utf8');
 const script = fs.readFileSync(path.join(root,'limpeza.js'),'utf8');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 class Element {

@@ -34,11 +34,32 @@ class BulkSemanticHttpTests {
     @BeforeEach void clean() {
         db.update("DELETE FROM review_item"); db.update("DELETE FROM review_batch"); db.update("DELETE FROM catalog_service");
         reset(python);
+        when(python.standardizeItems(anyList(),any())).thenAnswer(invocation->invocation.getArgument(0));
+
     }
 
     HttpResponse<String> post(String path, Object value) throws Exception {
         return client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path))
                 .header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(value))).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    @Test void explicitBulkDecisionSavesStandardizedDescription() throws Exception {
+        when(python.standardizeItems(anyList(),any())).thenAnswer(invocation->{
+            List<Map<String,String>> items=invocation.getArgument(0);
+            return items.stream().map(item->{
+                var row=new java.util.LinkedHashMap<>(item);row.put("descricao_item","SV pintor");
+                return (Map<String,String>)row;
+            }).toList();
+        });
+        String batch=json.readTree(post("/api/catalog/batches/text",Map.of("text","sv-pintor")).body()).path("id").asString();
+        String item=store.batchItems(batch,0,1).getFirst().get("id").toString();
+        String path="/api/catalog/batches/"+batch+"/items/"+item+"/decision";
+        var response=post(path,Map.of("action","CREATE"));
+        assertEquals(200,response.statusCode(),response.body());
+        assertEquals("SV pintor",json.readTree(response.body()).path("descricao_item").asString());
+        assertEquals("SV pintor",store.all().getFirst().get("descricao_item"));
+        assertEquals(response.body(),post(path,Map.of("action","CREATE")).body());
+        assertEquals(1,store.all().size());
     }
 
     @Test void automaticReuseAndCreateEndpointDoNotInsertDuplicates() throws Exception {

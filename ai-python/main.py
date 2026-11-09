@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 from .core import Catalog
 from .embedder import MiniLMEmbedder
 from .abbreviations import prepare_dictionary
+from .review_index import ReviewIndex
+from .identical_records import find_identical_records
 
 
 class CatalogItem(BaseModel):
@@ -61,6 +63,33 @@ class CompareRequest(BaseModel):
     dictionary: DictionaryRequest
 
 
+class ReviewStart(BaseModel):
+    items: list[CompareItem] = Field(max_length=50_000)
+    dictionary: DictionaryRequest
+
+
+class IdentityItem(CompareItem):
+    cleanup_passes: str = '0'
+    required_cleanup_passes: str = '1'
+    cleaned_at: str = ''
+    created_at: str = ''
+
+
+class IdentityRequest(BaseModel):
+    items: list[IdentityItem] = Field(max_length=50_000)
+    dictionary: DictionaryRequest
+
+
+class StandardizeRequest(BaseModel):
+    descriptions: list[str] = Field(max_length=50_000)
+    dictionary: DictionaryRequest
+
+
+class ReviewScope(BaseModel):
+    active_ids: list[str] | None = Field(default=None, max_length=50_000)
+    selected: str | None = None
+
+
 def description_preview(parts):
     return {'original': parts.original, 'activity': parts.activity,
             'qualifiers': list(parts.qualifier_texts), 'standardized': parts.standardized,
@@ -74,7 +103,9 @@ def create_app(embedder_factory=MiniLMEmbedder, data_dir=None):
             os.environ.get('PYTHON_DATA_DIR', str(Path(__file__).parent / 'data'))
         )
         app.state.catalog = Catalog(embedder_factory(), directory)
+        app.state.review_index = ReviewIndex(app.state.catalog.embedder, directory)
         yield
+        app.state.review_index.worker.shutdown(wait=True)
 
     api = FastAPI(title='Busca de serviços — MiniLM', lifespan=lifespan)
 
@@ -121,6 +152,23 @@ def create_app(embedder_factory=MiniLMEmbedder, data_dir=None):
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @api.post('/dictionary/standardize')
+    def standardize(request: StandardizeRequest):
+        try:
+            dictionary, _, _ = prepare_dictionary(
+                [entry.model_dump() for entry in request.dictionary.entries], request.dictionary.version)
+            descriptions = []
+            for text in request.descriptions:
+                if not text.strip() or len(text) > 300:
+                    raise ValueError('Descrição obrigatória com até 300 caracteres.')
+                standardized = dictionary.split(text).standardized
+                if not standardized or len(standardized) > 300:
+                    raise ValueError('A descrição padronizada excede o limite de 300 caracteres.')
+                descriptions.append(standardized)
+            return {'dictionary_version': request.dictionary.version, 'descriptions': descriptions}
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     @api.get('/catalog')
     def export_catalog():
         # Migração explícita da base antiga; o Java decide quando gravá-la no PostgreSQL.
@@ -159,6 +207,35 @@ def create_app(embedder_factory=MiniLMEmbedder, data_dir=None):
                 [entry.model_dump() for entry in request.dictionary.entries], request.dictionary.version)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @api.post('/identical-records')
+    def identical_records(request: IdentityRequest):
+        try:
+            return find_identical_records(
+                [row.model_dump() for row in request.items],
+                [entry.model_dump() for entry in request.dictionary.entries],
+                request.dictionary.version)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @api.post('/review-index')
+    def review_start(request: ReviewStart):
+        try:
+            return api.state.review_index.start([row.model_dump() for row in request.items],
+                [entry.model_dump() for entry in request.dictionary.entries], request.dictionary.version)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @api.post('/review-index/{key}')
+    def review_status(key: str, request: ReviewScope):
+        try:
+            if request.selected:
+                return {'results': api.state.review_index.neighbors(key, request.selected, request.active_ids)}
+            return api.state.review_index.status(key, request.active_ids)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     return api
 

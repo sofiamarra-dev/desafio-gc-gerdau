@@ -9,7 +9,7 @@ import unicodedata
 # Pontuação tem seu próprio token: não juntamos expressões através de vírgulas.
 TOKEN = re.compile(r"(?:\w|[\u0300-\u036f])+|[^\w\s]")
 PERCENTAGE = re.compile(r'[ \t\u00a0\u202f]+([0-9]+(?:[.,][0-9]+)?)[ \t\u00a0\u202f]*%(?![\w%])')
-SPLITTER_VERSION = 'percentages-2'
+SPLITTER_VERSION = 'spacing-3'
 HE_DOTTED_VARIANTS = ('H. EXTRA', 'H. EXTRAS')
 PERCENTAGE_CODES = frozenset(('HE', 'NOT', 'PERI', 'INSA'))
 
@@ -207,6 +207,12 @@ class AbbreviationDictionary:
             remaining = description[cursor:match.start]
             # O agrupamento preserva a associação ao reler o texto padronizado.
             label = f'({match.label})' if position in grouped_percentages else match.label
+            # Uma variante pode consumir o separador: "sv-pintor" -> "SV pintor".
+            # Só separam-se as bordas da substituição; sinais técnicos são preservados.
+            if match.start > 0 and description[match.start - 1].isalnum():
+                label = ' ' + label
+            if match.end < len(description) and description[match.end].isalnum():
+                label += ' '
             standardized.extend((remaining, label))
             cursor = match.end
         standardized.append(description[cursor:])

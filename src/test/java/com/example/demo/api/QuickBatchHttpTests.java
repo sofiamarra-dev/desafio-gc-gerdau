@@ -28,6 +28,9 @@ class QuickBatchHttpTests {
         return client.send(HttpRequest.newBuilder(url(path)).header("Content-Type","application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body)).build(),HttpResponse.BodyHandlers.ofString());
     }
+    @org.junit.jupiter.api.BeforeEach void standardization() {
+        when(python.standardizeItems(anyList(),any())).thenAnswer(invocation->invocation.getArgument(0));
+    }
     @Test void quickTextBatchCreatesOnceAndExportsVerificationLevel() throws Exception {
         var invalid=post("/api/catalog/batches/text","{\"text\":\"Pintura\",\"mode\":\"INVALID\"}");assertEquals(400,invalid.statusCode());
         var uploaded=post("/api/catalog/batches/text","{\"text\":\"Pintura industrial;;;;;\",\"mode\":\"QUICK\"}");

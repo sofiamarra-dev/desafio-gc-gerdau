@@ -11,7 +11,7 @@ class Element {
   setAttribute(name,value){this[name]=value;}
   addEventListener(name,fn){this.events[name]=fn;}
 }
-async function setup(session,logoutOk=true){
+async function setup(session,logoutOk=true,beforeLeave=null){
   const header=new Element(),adminLink=new Element(),body=new Element(),listeners={},calls=[],redirects=[];
   const location={href:'http://test/menu.html',origin:'http://test',replace:url=>redirects.push(url)};
   const fetch=async(input,options={})=>{
@@ -19,7 +19,7 @@ async function setup(session,logoutOk=true){
     return input==='/api/auth/status'?{ok:true,status:200,json:async()=>session}:{ok:logoutOk,status:logoutOk?204:500};
   };
   const document={body,createElement:()=>new Element(),querySelector:()=>header,querySelectorAll:()=>[adminLink],addEventListener:(name,fn)=>listeners[name]=fn};
-  const window={fetch};
+  const window={fetch,cleanupBeforeLeave:beforeLeave};
   vm.runInNewContext(script,{window,document,location,URL,Headers,fetch:(...args)=>window.fetch(...args)});
   await listeners.DOMContentLoaded();
   return {header,adminLink,calls,redirects,body};
@@ -49,4 +49,11 @@ test('logout failure preserves account identity and permits retry',async()=>{
 test('expired session redirects before displaying any account details',async()=>{
   const {header,redirects}=await setup({authenticated:false});
   assert.equal(header.children.length,0);assert.deepEqual(redirects,['/login.html']);
+});
+
+test('cancelling the cleanup exit prompt prevents logout and preserves the active session',async()=>{
+  const {header,calls,redirects}=await setup({authenticated:true,email:'admin@gmail.com',admin:true},true,async()=>false);
+  const button=header.children[0].children[2];await button.events.click();
+  assert.equal(calls.some(call=>call.input==='/api/auth/logout'),false);
+  assert.equal(redirects.length,0);assert.equal(button.disabled,false);
 });

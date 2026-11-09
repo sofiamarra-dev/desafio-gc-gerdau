@@ -72,7 +72,7 @@ variantes e desativar uma sigla, preservando a reserva de suas expressões.
 
 ### Limpeza de dados
 
-Acesse **Limpeza de dados** no menu. A revisão usa uma cópia local persistente, compara somente com os registros já verificados e permite escolher qual equivalente manter. A base permanente só muda após concluir e confirmar **Usar como base permanente**. Veja [docs/LIMPEZA.md](docs/LIMPEZA.md) para armazenamento, retomada, marcações e regras do 100% semântico.
+Acesse **Limpeza de dados** no menu. A tela abre diretamente, retira registros cadastralmente idênticos da revisão e informa a quantidade antes de liberar escolhas manuais. Exclusões e verificações ficam pendentes até **Salvar alterações**. Veja [docs/DASHBOARD-E-LIMPEZA.md](docs/DASHBOARD-E-LIMPEZA.md) para salvamento, saída e igualdade determinística.
 
 ## Rotas principais
 
@@ -96,3 +96,8 @@ Acesse **Limpeza de dados** no menu. A revisão usa uma cópia local persistente
 - Nome 3 Guilherme Barros
 - Nome 4 Nathallya Fontoura  
 - Nome 5 Daniel Osterkamp
+
+## Dashboard e nova limpeza
+
+O portal oferece dashboard paginado com filtros, ordenação e análise de pares semelhantes. A nova limpeza usa a mesma lista e permite revisar os 20 semelhantes de um código, escolher o mantido e salvar explicitamente as alterações pendentes. O fluxo antigo continua acessível para recuperar cópias anteriores. Veja [docs/DASHBOARD-E-LIMPEZA.md](docs/DASHBOARD-E-LIMPEZA.md) para uso, algoritmo, custos e atualização de Java/Python.
+

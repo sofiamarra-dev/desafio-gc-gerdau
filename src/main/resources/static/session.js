@@ -32,7 +32,7 @@
       logout.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H5v16h4M11 12h10M17 8l4 4-4 4"/></svg><span>Sair</span>';
       logout.addEventListener('click',async()=>{
         logout.disabled=true;
-        try { const r=await fetch('/api/auth/logout',{method:'POST'});if(!r.ok) throw Error();location.replace('/login.html'); }
+        try { if(window.cleanupBeforeLeave && !await window.cleanupBeforeLeave()){logout.disabled=false;return;} const r=await fetch('/api/auth/logout',{method:'POST'});if(!r.ok) throw Error();location.replace('/login.html'); }
         catch (_) { logout.disabled=false;error.textContent='Não foi possível sair. Tente novamente.'; }
       });
       details.append(label,role,error);panel.append(avatar,details,logout);

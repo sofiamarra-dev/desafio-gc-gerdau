@@ -32,6 +32,9 @@ class CatalogHttpTests {
                 .header("Content-Type", "application/json").method(method, HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    @org.junit.jupiter.api.BeforeEach void standardization() {
+        when(python.standardizeItems(anyList(),any())).thenAnswer(invocation->invocation.getArgument(0));
+    }
     @Test void uploadReviewResumeAndExportThroughHttp() throws Exception {
         String key = UUID.randomUUID().toString();
         String create = "{\"codigo_servico\":\"HTTP01\",\"descricao_item\":\"Reparo de motor\",\"request_id\":\""+key+"\"}";

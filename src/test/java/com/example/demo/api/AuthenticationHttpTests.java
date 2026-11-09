@@ -55,7 +55,8 @@ class AuthenticationHttpTests {
         login("comum@gmail.com");
         var status=json.readTree(get("/api/auth/status").body());assertTrue(status.path("authenticated").asBoolean());assertFalse(status.path("admin").asBoolean());
         assertEquals(200,get("/menu.html").statusCode());assertEquals(200,get("/api/catalog/status").statusCode());
-        for(String path:List.of("/api/abbreviations","/api/cleanups","/siglas.html","/limpeza.html")) assertEquals(403,get(path).statusCode(),path);
+        for(String path:List.of("/api/abbreviations","/api/cleanups","/api/cleanups/ranked","/siglas.html","/limpeza.html","/limpeza-legada.html","/revisao.html")) assertEquals(403,get(path).statusCode(),path);
+        assertEquals(200,get("/dashboard.html").statusCode());assertEquals(200,get("/api/catalog/dashboard?size=10").statusCode());
         assertEquals(403,post("/api/abbreviations",Map.of("code","X"),true).statusCode());
         assertEquals(403,post("/api/cleanups",Map.of(),true).statusCode());
     }

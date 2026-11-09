@@ -106,6 +106,7 @@ public class CatalogController {
                 @SuppressWarnings("unchecked") var service = (Map<String, String>) match.get("service");
                 return service;
             }
+            return bulkReview.create(batch,item);
         }
         return store.resolve(batch, item, decision.action(), decision.service_id());
     }

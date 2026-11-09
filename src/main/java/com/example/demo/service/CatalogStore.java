@@ -49,6 +49,7 @@ public class CatalogStore {
     private Map<String, String> row(java.sql.ResultSet rs) throws java.sql.SQLException {
         var result = new LinkedHashMap<String, String>();
         result.put("catalog_id", rs.getString("id"));
+        result.put("created_at",rs.getTimestamp("created_at").toInstant().toString());
         for (String field : FIELDS) result.put(field, rs.getString(field));
         result.put("cleaned_at", Objects.toString(rs.getObject("cleaned_at"), ""));
         result.put("cleanup_id", Objects.toString(rs.getString("cleanup_id"), ""));
@@ -64,6 +65,35 @@ public class CatalogStore {
     public List<Map<String, String>> all() {
         return db.query("SELECT * FROM catalog_service WHERE replaced_by IS NULL ORDER BY created_at, id", (rs, n) -> row(rs));
     }
+    public String currentRevision(){return db.queryForObject("SELECT dataset_key FROM catalog_state WHERE id=1",String.class)+":"+db.queryForObject("SELECT revision FROM catalog_state WHERE id=1",Long.class);}
+
+    public Map<String,Object> page(Map<String,String> params) {
+        String sort=params.getOrDefault("sort","created_at");
+        if(!Set.of("codigo_servico","descricao_item","grupo_servico","codigo_fornecedor","unidade_medida","created_at","verification_status").contains(sort)) throw new IllegalArgumentException("Ordenação inválida.");
+        String direction=params.getOrDefault("order","asc");
+        if(!Set.of("asc","desc").contains(direction)) throw new IllegalArgumentException("Direção inválida.");
+        StringBuilder where=new StringBuilder(" WHERE replaced_by IS NULL");var args=new ArrayList<Object>();
+        String query=params.getOrDefault("query","").strip().toLowerCase(Locale.ROOT);
+        if(!query.isBlank()) {where.append(" AND (LOWER(descricao_item) LIKE ? ESCAPE '!' OR LOWER(codigo_servico) LIKE ? ESCAPE '!')");String term=like(query);args.add(term);args.add(term);}
+        for(String field:List.of("grupo_servico","codigo_fornecedor","unidade_medida")) {
+            String term=params.getOrDefault(field,"").strip().toLowerCase(Locale.ROOT);
+            if(!term.isBlank()){where.append(" AND LOWER(").append(field).append(") LIKE ? ESCAPE '!'");args.add(like(term));}
+        }
+        String verification="CASE WHEN cleanup_passes>=required_cleanup_passes THEN 'VERIFIED' WHEN cleanup_passes>0 THEN 'PARTIAL' ELSE 'PENDING' END";
+        String state=params.getOrDefault("verification_status","");
+        if(!state.isBlank()){if(!Set.of("VERIFIED","PARTIAL","PENDING").contains(state))throw new IllegalArgumentException("Verificação inválida.");where.append(" AND (").append(verification).append(")=?");args.add(state);}
+        long total=db.queryForObject("SELECT COUNT(*) FROM catalog_service"+where,Long.class,args.toArray());
+        int size=CatalogPages.number(params,"size",20,100),page=CatalogPages.number(params,"page",1,Integer.MAX_VALUE);
+        int pages=(int)Math.max(1,(total+size-1)/size);page=Math.min(page,pages);
+        var orderedArgs=new ArrayList<>(args);orderedArgs.add(size);orderedArgs.add((long)(page-1)*size);
+        String column="verification_status".equals(sort)?"("+verification+")":sort;
+        var rows=db.query("SELECT * FROM catalog_service"+where+" ORDER BY "+column+" "+direction+",id LIMIT ? OFFSET ?",(rs,n)->{
+            var item=new LinkedHashMap<String,Object>(row(rs));item.put("created_at",rs.getTimestamp("created_at").toInstant().toString());return item;
+        },orderedArgs.toArray());
+        var summary=db.queryForMap("SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN cleanup_passes>=required_cleanup_passes THEN 1 ELSE 0 END),0) AS verified,COALESCE(SUM(CASE WHEN cleanup_passes>0 AND cleanup_passes<required_cleanup_passes THEN 1 ELSE 0 END),0) AS partial FROM catalog_service WHERE replaced_by IS NULL");
+        return new LinkedHashMap<>(Map.of("items",rows,"total",total,"page",page,"size",size,"pages",pages,"summary",summary));
+    }
+    private String like(String value){ return "%"+value.replace("!","!!").replace("%","!%").replace("_","!_")+"%"; }
 
     public Map<String, String> get(String id) {
         var seen = new HashSet<String>();
@@ -85,14 +115,20 @@ public class CatalogStore {
     }
 
     public Map<String, String> resolveExistingIfRevision(String batch, String item, String candidate, String expectedRevision, String expectedDictionaryRevision) {
-        return resolveIfRevision(batch,item,"EXISTING",candidate,expectedRevision,expectedDictionaryRevision,false);
+        return resolveIfRevision(batch,item,"EXISTING",candidate,expectedRevision,expectedDictionaryRevision,false,null);
     }
 
     public Map<String, String> resolveQuickIfRevision(String batch, String item, String expectedRevision, String expectedDictionaryRevision) {
-        return resolveIfRevision(batch,item,"CREATE",null,expectedRevision,expectedDictionaryRevision,true);
+        return resolveIfRevision(batch,item,"CREATE",null,expectedRevision,expectedDictionaryRevision,true,null);
     }
 
-    private Map<String, String> resolveIfRevision(String batch, String item, String action, String candidate, String expectedRevision, String expectedDictionaryRevision, boolean quick) {
+    public Map<String,String> resolveStandardizedIfRevision(String batch,String item,String description,
+            String catalogRevision,String dictionaryRevision,boolean quick) {
+        if(description==null || description.isBlank()) throw new IllegalArgumentException("Descrição padronizada obrigatória.");
+        return resolveIfRevision(batch,item,"CREATE",null,catalogRevision,dictionaryRevision,quick,description);
+    }
+
+    private Map<String, String> resolveIfRevision(String batch, String item, String action, String candidate, String expectedRevision, String expectedDictionaryRevision, boolean quick, String standardized) {
         return tx.execute(status -> {
             lockCatalog();
             if (!snapshot().revision().equals(expectedRevision))
@@ -103,7 +139,7 @@ public class CatalogStore {
             if (!dictionaryRevision.equals(expectedDictionaryRevision))
                 throw new ResponseStatusException(HttpStatus.CONFLICT,"O dicionário mudou. Compare esta linha novamente.");
             if (quick && !"QUICK".equals(batchMode(batch))) throw new IllegalArgumentException("Este lote não usa criação rápida.");
-            return resolve(batch, item, action, candidate, quick);
+            return resolve(batch, item, action, candidate, quick,standardized);
         });
     }
 
@@ -116,6 +152,11 @@ public class CatalogStore {
     }
 
     public void applyCleanup(String id, String expectedRevision, String expectedDictionaryRevision, Map<String, String> representatives, Set<String> reviewed) {
+        applyCleanup(id,expectedRevision,expectedDictionaryRevision,representatives,reviewed,Map.of());
+    }
+
+    public void applyCleanup(String id,String expectedRevision,String expectedDictionaryRevision,
+            Map<String,String> representatives,Set<String> reviewed,Map<String,String> descriptions) {
         tx.executeWithoutResult(status -> {
             lockCatalog();
             if (cleanupApplied(id)) return; // ConfirmaÃ§Ã£o repetida ou recuperaÃ§Ã£o apÃ³s falha na gravaÃ§Ã£o do arquivo.
@@ -132,9 +173,17 @@ public class CatalogStore {
             if (!ids.equals(representatives.keySet()) || representatives.values().stream()
                     .anyMatch(target -> !ids.contains(target) || !target.equals(representatives.get(target))))
                 throw new IllegalArgumentException("A revisÃ£o estÃ¡ incompleta ou possui vÃ­nculos invÃ¡lidos.");
+            if(!ids.containsAll(descriptions.keySet())) throw new IllegalArgumentException("Descrição fora desta limpeza.");
+            for(var entry:descriptions.entrySet()) {
+                String text=entry.getValue();
+                if(text==null || text.isBlank() || text.length()>300) throw new IllegalArgumentException("Descrição padronizada inválida.");
+                db.update("UPDATE catalog_service SET descricao_item=? WHERE id=?",text,entry.getKey());
+            }
             for (var entry : representatives.entrySet()) {
                 String target = entry.getKey().equals(entry.getValue()) ? null : entry.getValue();
-                db.update("UPDATE catalog_service SET replaced_by=? WHERE id=?",target,entry.getKey());
+                // A origem contém somente registros ativos (replaced_by NULL).
+                // Salvar poucos códigos não precisa regravar todo o catálogo.
+                if(target!=null)db.update("UPDATE catalog_service SET replaced_by=? WHERE id=?",target,entry.getKey());
                 if (reviewed.contains(entry.getKey())) {
                     db.update("UPDATE catalog_service SET cleanup_passes=LEAST(required_cleanup_passes,cleanup_passes+1),cleanup_id=? WHERE id=?",id,entry.getKey());
                     db.update("UPDATE catalog_service SET cleaned_at=CASE WHEN cleanup_passes>=required_cleanup_passes THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id=?",entry.getKey());
@@ -288,7 +337,7 @@ public class CatalogStore {
     }
 
     public Map<String, String> resolve(String batch, String itemId, String action, String existingId) {
-        return resolve(batch,itemId,action,existingId,false);
+        return resolve(batch,itemId,action,existingId,false,null);
     }
 
     public String batchMode(String batch) {
@@ -297,7 +346,7 @@ public class CatalogStore {
         return modes.getFirst();
     }
 
-    private Map<String, String> resolve(String batch, String itemId, String action, String existingId, boolean quick) {
+    private Map<String, String> resolve(String batch, String itemId, String action, String existingId, boolean quick, String standardized) {
         if (!Set.of("EXISTING", "CREATE").contains(Objects.toString(action, ""))) throw new IllegalArgumentException("AÃ§Ã£o deve ser EXISTING ou CREATE.");
         return tx.execute(status -> {
             lockCatalog();
@@ -315,6 +364,8 @@ public class CatalogStore {
             else {
                 @SuppressWarnings("unchecked")
                 Map<String, String> fields = json.readValue(item.get("payload").toString(), Map.class);
+                fields=new LinkedHashMap<>(fields);
+                if(standardized!=null) fields.put("descricao_item",standardized);
                 selected = insert(validate(fields, false), itemId, quick);
             }
             db.update("UPDATE review_item SET status=?,service_id=?,decided_at=CURRENT_TIMESTAMP WHERE id=?", targetStatus, selected.get("catalog_id"), itemId);

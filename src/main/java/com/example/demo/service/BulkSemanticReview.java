@@ -19,6 +19,16 @@ public class BulkSemanticReview {
         this.abbreviations = abbreviations;
     }
 
+    public Map<String,String> create(String batch,String itemId) {
+        var item=store.batchItem(batch,itemId);
+        if("CREATED".equals(item.get("status"))) return store.get(item.get("service_id").toString());
+        if(!"PENDING".equals(item.get("status"))) throw new ResponseStatusException(HttpStatus.CONFLICT,"Esta linha não está pendente.");
+        var source=store.snapshot();var dictionary=abbreviations.snapshot();
+        @SuppressWarnings("unchecked")var fields=(Map<String,String>)item.get("fields");
+        var standardized=python.standardizeItems(java.util.List.of(fields),dictionary).getFirst();
+        return store.resolveStandardizedIfRevision(batch,itemId,standardized.get("descricao_item"),source.revision(),dictionary.revision(),false);
+    }
+
     public Map<String, Object> match(String batch, String itemId) {
         var item = store.batchItem(batch, itemId);
         String status = item.get("status").toString();
@@ -63,7 +73,8 @@ public class BulkSemanticReview {
                         || result.path("similaridade_semantica").asDouble()>.90)
                     throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"A análise rápida está inconsistente. Tente novamente.");
             }
-            var service=store.resolveQuickIfRevision(batch,itemId,snapshot.revision(),dictionary.revision());
+            var standardized=python.standardizeItems(java.util.List.of(fields),dictionary).getFirst();
+            var service=store.resolveStandardizedIfRevision(batch,itemId,standardized.get("descricao_item"),snapshot.revision(),dictionary.revision(),true);
             return Map.of("automatic",true,"resolved",true,"created_quick",true,"service",service);
         }
         return Map.of("automatic", false, "resolved", false);

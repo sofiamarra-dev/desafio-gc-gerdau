@@ -12,6 +12,8 @@ import java.net.URI;
 import java.net.http.*;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties="spring.datasource.url=jdbc:h2:mem:textflow;MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
@@ -27,6 +29,9 @@ class TextBatchHttpTests {
                 .header("Content-Type", "application/json").method(method, HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    @org.junit.jupiter.api.BeforeEach void standardization() {
+        when(python.standardizeItems(anyList(),any())).thenAnswer(invocation->invocation.getArgument(0));
+    }
     @Test void textCreatesOnlyPendingRequestsUntilIndividualDecision() throws Exception {
         String text = "Manutenção de motor;Manutenção;0012;;h;hora\n\n;Grupo\nPINTOR HE 50%";
         var response = call("POST", "/api/catalog/batches/text", json.writeValueAsString(Map.of("text", text)));

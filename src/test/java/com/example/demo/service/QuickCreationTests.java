@@ -28,7 +28,9 @@ class QuickCreationTests {
     @BeforeEach void setup() {
         db.update("DELETE FROM review_item");db.update("DELETE FROM review_batch");
         db.update("DELETE FROM catalog_cleanup_review");db.update("DELETE FROM catalog_cleanup_run");db.update("DELETE FROM catalog_service");
-        reset(python);cleanup=new CatalogCleanup(store,dictionary,python,json,directory.toString());
+        reset(python);
+        when(python.standardizeItems(anyList(),any())).thenAnswer(invocation->invocation.getArgument(0));
+cleanup=new CatalogCleanup(store,dictionary,python,json,directory.toString());
     }
     Map<String,String> add(String text) { return store.create(Map.of("descricao_item",text),UUID.randomUUID().toString()); }
     void batch(String mode) {
@@ -118,4 +120,33 @@ class QuickCreationTests {
         assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM catalog_cleanup_review WHERE service_id=?",Integer.class,old.get("catalog_id")));
         assertEquals(first,store.get(old.get("catalog_id")).get("cleanup_id"));
     }
+
+    @Test void bothQuickAndManualBulkCreationPersistCanonicalDescriptionButKeepUploadOriginal() {
+        when(python.standardizeItems(anyList(),any())).thenAnswer(invocation->{
+            List<Map<String,String>> items=invocation.getArgument(0);
+            return items.stream().map(item->{var row=new LinkedHashMap<>(item);row.put("descricao_item","SV pintor HE");return (Map<String,String>)row;}).toList();
+        });
+        for(String mode:List.of("NORMAL","QUICK")) {
+            batch=store.createBatch("teste",new LeitorDePlanilha.ParsedRequests("Pedidos",List.of(
+                    new LeitorDePlanilha.RequestRow(1,Map.of("descricao_item","sv-pintor  hora extra")))),mode);
+            line=store.batchItems(batch,0,1).getFirst().get("id").toString();
+            compared(0,false,false);
+            var created="QUICK".equals(mode)?service(review.match(batch,line)):review.create(batch,line);
+            assertEquals("SV pintor HE",created.get("descricao_item"));
+            assertEquals("SV pintor HE",store.get(created.get("catalog_id")).get("descricao_item"));
+            assertEquals("0",created.get("cleanup_passes"));
+            @SuppressWarnings("unchecked")var original=(Map<String,String>)store.batchItem(batch,line).get("fields");
+            assertEquals("sv-pintor  hora extra",original.get("descricao_item"));
+        }
+    }
+    @Test void manualBulkCreationRejectsDictionaryChangedDuringStandardization() {
+        batch("NORMAL");
+        when(python.standardizeItems(anyList(),any())).thenAnswer(invocation->{
+            db.update("UPDATE abbreviation_state SET revision=revision+1 WHERE id=1");
+            return invocation.getArgument(0);
+        });
+        assertEquals(409,assertThrows(ResponseStatusException.class,()->review.create(batch,line)).getStatusCode().value());
+        assertEquals("PENDING",store.batchItem(batch,line).get("status"));assertTrue(store.all().isEmpty());
+    }
+
 }

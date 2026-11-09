@@ -37,7 +37,9 @@ public class SecurityConfiguration {
             "/api/cleanups",
             "/api/cleanups/**",
             "/siglas.*",
-            "/limpeza.*"
+            "/limpeza.*",
+            "/limpeza-legada.html",
+            "/revisao.html"
     };
 
     @Bean
