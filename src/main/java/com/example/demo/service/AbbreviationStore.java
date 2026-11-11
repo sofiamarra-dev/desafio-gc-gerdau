@@ -25,13 +25,16 @@ public class AbbreviationStore {
         tx = new TransactionTemplate(manager);
     }
 
-    // Compatível com as chaves do separador Python: acentos/caixa/espaços não criam variantes distintas.
+
     public static String normalize(String text) {
         String clean = Normalizer.normalize(text, Normalizer.Form.NFKD).replaceAll("\\p{M}+", "")
                 .toLowerCase(Locale.ROOT).replace("ß", "ss").replace('ς', 'σ');
         var matcher = TOKEN.matcher(clean);
         var tokens = new ArrayList<String>();
-        while (matcher.find()) tokens.add(matcher.group());
+
+        while (matcher.find())
+            tokens.add(matcher.group());
+
         return String.join(" ", tokens);
     }
 
@@ -39,8 +42,10 @@ public class AbbreviationStore {
         if (value == null || value.isBlank() || value.strip().length() > limit)
             throw new IllegalArgumentException(label + ": preencha entre 1 e " + limit + " caracteres.");
         String result = value.strip();
+
         if (result.codePoints().noneMatch(Character::isLetterOrDigit) || result.codePoints().anyMatch(Character::isISOControl))
             throw new IllegalArgumentException(label + ": use uma expressão com letras ou números, sem quebras de linha.");
+
         return result;
     }
 
@@ -53,10 +58,15 @@ public class AbbreviationStore {
     private Entry entry(String code) {
         var found = db.query("SELECT * FROM abbreviation WHERE code=?", (rs, n) ->
                 new Entry(rs.getString("code"), rs.getString("meaning"), List.of(), rs.getBoolean("active"), rs.getLong("version")), code);
-        if (found.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sigla não encontrada.");
+
+        if (found.isEmpty())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sigla não encontrada.");
+
         var item = found.getFirst();
+
         var variants = db.query("SELECT expression FROM abbreviation_alias WHERE code=? AND kind='VARIANT' ORDER BY normalized",
                 (rs, n) -> rs.getString(1), code);
+
         return new Entry(code, item.meaning(), variants, item.active(), item.version());
     }
 
@@ -74,23 +84,28 @@ public class AbbreviationStore {
 
     private record Alias(String expression, String kind) {}
     private Map<String, Alias> aliases(String code, String meaning, List<String> variants) {
+
         if (variants == null || variants.size() > 100)
             throw new IllegalArgumentException("Informe até 100 variantes, uma por linha.");
+
         for (String phrase : java.util.stream.Stream.concat(java.util.stream.Stream.of(code, meaning), variants.stream()).toList()) {
             String compact = normalize(Objects.toString(phrase, "")).replaceAll("[^\\p{L}\\p{N}]", "");
             if (compact.equalsIgnoreCase("ESP") || compact.equalsIgnoreCase("ADM"))
                 throw new IllegalArgumentException("ESP e ADM isolados são ambíguos. Preserve-os na atividade; cadastre apenas expressões completas e confirmadas de qualificadores.");
         }
+
         var result = new LinkedHashMap<String, Alias>();
         result.put(normalize(code), new Alias(code, "CODE"));
         result.putIfAbsent(normalize(meaning), new Alias(meaning, "MEANING"));
+
         for (String value : variants) {
             String variant = text(value, "Variante", 80);
             result.putIfAbsent(normalize(variant), new Alias(variant, "VARIANT"));
         }
+
         for (var alias : result.entrySet()) {
-            var owners = db.query("SELECT code FROM abbreviation_alias WHERE normalized=?",
-                    (rs,n) -> rs.getString(1), alias.getKey());
+            var owners = db.query("SELECT code FROM abbreviation_alias WHERE normalized=?", (rs,n) -> rs.getString(1), alias.getKey());
+
             if (!owners.isEmpty() && !owners.getFirst().equals(code))
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "A expressão ‘" + alias.getValue().expression() + "’ já pertence à sigla " + owners.getFirst() + ".");
@@ -106,15 +121,21 @@ public class AbbreviationStore {
     }
 
     public Snapshot create(String code, String meaning, List<String> variants, boolean active) {
+
         String canonical = text(code, "Sigla", 16).toUpperCase(Locale.ROOT);
-        if (!canonical.matches("[A-Z0-9]{1,16}")) throw new IllegalArgumentException("Use apenas letras e números na sigla.");
+
+        if (!canonical.matches("[A-Z0-9]{1,16}"))
+            throw new IllegalArgumentException("Use apenas letras e números na sigla.");
+
         String official = text(meaning, "Significado", 80);
+
         return tx.execute(status -> {
             lock();
             if (db.queryForObject("SELECT COUNT(*) FROM abbreviation WHERE code=?", Integer.class, canonical) > 0)
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "A sigla " + canonical + " já existe. Edite suas variantes.");
             if (db.queryForObject("SELECT COUNT(*) FROM abbreviation", Integer.class) >= 1000)
                 throw new IllegalArgumentException("Limite de 1.000 siglas atingido.");
+
             var aliases = aliases(canonical, official, variants);
             db.update("INSERT INTO abbreviation(code,meaning,active,version) VALUES (?,?,?,1)", canonical, official, active);
             saveAliases(canonical, aliases);
@@ -129,28 +150,39 @@ public class AbbreviationStore {
             var current = entry(code);
             if (version == null || version != current.version())
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta sigla foi alterada em outra tela. Recarregue a lista antes de salvar.");
+
             var aliases = aliases(code, current.meaning(), variants);
             saveAliases(code, aliases);
             db.update("UPDATE abbreviation SET active=?,version=version+1 WHERE code=?", active, code);
             db.update("UPDATE abbreviation_state SET revision=revision+1 WHERE id=1");
+
             return snapshotLocked();
         });
     }
     public Snapshot correct(String code, String meaning, List<String> variants, String reason, Long version) {
         String official = text(meaning, "Significado", 80);
         String explanation = text(reason, "Motivo", 500);
-        if (explanation.length() < 10) throw new IllegalArgumentException("Explique a correção em pelo menos 10 caracteres.");
+
+        if (explanation.length() < 10)
+            throw new IllegalArgumentException("Explique a correção em pelo menos 10 caracteres.");
+
         return tx.execute(status -> {
             lock();
             var before = entry(code);
             if (version == null || version != before.version())
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta sigla foi alterada em outra tela. Recarregue a lista antes de corrigir.");
+
             var proposed = aliases(code, official, variants);
+
             if (official.equals(before.meaning()) && variants.equals(before.variants()))
                 throw new IllegalArgumentException("Altere o significado ou as variantes para registrar uma correção.");
+
             saveAliases(code, proposed);
+
             db.update("UPDATE abbreviation SET meaning=?,version=version+1 WHERE code=?", official, code);
+
             var after = entry(code);
+
             db.update("INSERT INTO abbreviation_correction(id,code,before_entry,after_entry,reason) VALUES (?,?,?,?,?)",
                     UUID.randomUUID().toString(), code, json.writeValueAsString(before), json.writeValueAsString(after), explanation);
             db.update("UPDATE abbreviation_state SET revision=revision+1 WHERE id=1");

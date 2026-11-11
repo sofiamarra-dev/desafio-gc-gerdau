@@ -12,7 +12,7 @@ import java.nio.file.*;
 import java.time.Instant;
 import java.util.*;
 
-/** A revisão grava somente arquivos locais; SQL só muda na confirmação final. */
+
 @Service
 public class CatalogCleanup {
     private static final String AUTOMATIC_RULE = "identical-records-1";
@@ -20,6 +20,7 @@ public class CatalogCleanup {
                         AbbreviationStore.Snapshot dictionary, List<Map<String,String>> items,
                         Map<String,String> representatives, List<Map<String,Object>> decisions,
                         List<Map<String,Object>> results, String analyzedId, String automaticRule) {}
+
     private final CatalogStore store;
     private final AbbreviationStore abbreviations;
     private final PythonAiClient python;
@@ -33,37 +34,62 @@ public class CatalogCleanup {
     }
 
     private Path path(String id) {
-        try { return directory.resolve(UUID.fromString(id).toString()+".json"); }
-        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Identificação de limpeza inválida."); }
+        try {
+            return directory.resolve(UUID.fromString(id).toString()+".json");
+        }
+
+        catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Identificação de limpeza inválida.");
+        }
     }
     private ResponseStatusException storageError() {
         return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Não foi possível ler ou salvar a cópia local da limpeza. Verifique o diretório e tente novamente.");
     }
     private void save(Draft draft) {
         Path temporary=null;
+
         try {
             Files.createDirectories(directory);
             temporary=Files.createTempFile(directory,"cleanup-",".tmp");
             Files.writeString(temporary,json.writeValueAsString(draft),StandardCharsets.UTF_8);
-            try { Files.move(temporary,path(draft.id()),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING); }
-            catch (AtomicMoveNotSupportedException e) { Files.move(temporary,path(draft.id()),StandardCopyOption.REPLACE_EXISTING); }
-        } catch (IOException e) { throw storageError(); }
-        finally { if (temporary!=null) try { Files.deleteIfExists(temporary); } catch (IOException ignored) {} }
+
+            try {
+                Files.move(temporary,path(draft.id()),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            catch (AtomicMoveNotSupportedException e) {
+                Files.move(temporary,path(draft.id()),StandardCopyOption.REPLACE_EXISTING);
+            }
+
+        } catch (IOException e) {
+            throw storageError();
+        }
+        finally {
+            if (temporary!=null)
+                try {
+                    Files.deleteIfExists(temporary);
+                } catch (IOException ignored) {}
+        }
     }
     private Draft read(String id) {
         Path file=path(id);
-        if (!Files.exists(file)) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Limpeza não encontrada.");
+
+        if (!Files.exists(file))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Limpeza não encontrada.");
+
         try {
             var draft=json.readValue(Files.readString(file,StandardCharsets.UTF_8),Draft.class);
-            // A regra antiga podia resolver descrições diferentes com cosseno 1.
-            // Reabre apenas essas decisões na cópia; decisões humanas e SQL publicado são preservados.
+
             if (!AUTOMATIC_RULE.equals(draft.automaticRule()) && !applied(draft)) {
                 var representatives=new LinkedHashMap<>(draft.representatives());
+
                 for (var decision:draft.decisions()) {
                     if (Boolean.TRUE.equals(decision.get("automatic")) && "KEEP_VERIFIED".equals(decision.get("action")))
                         representatives.remove(Objects.toString(decision.get("item_id")));
                 }
+
                 var decisions=new ArrayList<>(draft.decisions());
+
                 decisions.add(Map.of("action","AUTOMATIC_RULE_CHANGED","at",Instant.now().toString(),"rule",AUTOMATIC_RULE));
                 draft=new Draft(draft.id(),draft.status(),draft.sourceRevision(),draft.createdAt(),draft.skipVerified(),
                         draft.dictionary(),draft.items(),representatives,decisions,List.of(),null,AUTOMATIC_RULE);
@@ -73,27 +99,43 @@ public class CatalogCleanup {
         }
         catch (IOException e) { throw storageError(); }
     }
-    private String id(Map<String,String> item) { return item.get("catalog_id"); }
+    private String id(Map<String,String> item) {
+        return item.get("catalog_id");
+    }
+
     private Map<String,String> current(Draft draft) {
         return draft.items().stream().filter(item -> !draft.representatives().containsKey(id(item))).findFirst().orElse(null);
     }
-    private boolean applied(Draft draft) { return "APPLIED".equals(draft.status()) || store.cleanupApplied(draft.id()); }
+
+    private boolean applied(Draft draft) {
+        return "APPLIED".equals(draft.status()) || store.cleanupApplied(draft.id());
+    }
+
     private void requireOpen(Draft draft) {
-        if (applied(draft)) throw new ResponseStatusException(HttpStatus.CONFLICT,"Esta limpeza já foi aplicada.");
+        if (applied(draft))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Esta limpeza já foi aplicada.");
+
         if (!abbreviations.snapshot().revision().equals(draft.dictionary().revision()))
             throw new ResponseStatusException(HttpStatus.CONFLICT,"O dicionário mudou. Inicie uma nova cópia para revisar com as regras atuais.");
     }
     private Map<String,Object> view(Draft draft) {
         boolean published=applied(draft);
+
         var result=new LinkedHashMap<String,Object>();
+
         result.put("id",draft.id()); result.put("status",published?"APPLIED":"DRAFT");
         result.put("source_revision",draft.sourceRevision()); result.put("created_at",draft.createdAt());
         result.put("skip_verified",draft.skipVerified()); result.put("total",draft.items().size());
         result.put("pending",draft.items().size()-draft.representatives().size());
+
         long verified=draft.representatives().entrySet().stream().filter(e -> e.getKey().equals(e.getValue())).count();
+
         result.put("verified",verified); result.put("replaced",draft.representatives().size()-verified);
+
         var permanent=new HashMap<String,Map<String,String>>();
+
         if (published) store.all().forEach(row -> permanent.put(id(row),row));
+
         long awaiting=draft.items().stream().filter(row -> id(row).equals(draft.representatives().get(id(row))))
                 .filter(row -> {
                     var data=published?permanent.getOrDefault(id(row),row):row;
@@ -187,18 +229,26 @@ public class CatalogCleanup {
         return view(resolved(draft,item,candidate,action,false));
     }
     public synchronized Map<String,Object> apply(String id,boolean confirmed) {
-        if (!confirmed) throw new IllegalArgumentException("Confirme explicitamente o uso desta cópia como base permanente.");
+        if (!confirmed)
+            throw new IllegalArgumentException("Confirme explicitamente o uso desta cópia como base permanente.");
         var draft=read(id);
+
         if (!applied(draft)) {
             requireOpen(draft);
-            if (current(draft)!=null) throw new ResponseStatusException(HttpStatus.CONFLICT,"Conclua todas as linhas antes de aplicar a limpeza.");
+
+            if (current(draft)!=null)
+                throw new ResponseStatusException(HttpStatus.CONFLICT,"Conclua todas as linhas antes de aplicar a limpeza.");
+
             var reviewed=new HashSet<String>();
             for (var item:draft.items()) {
-                if (!draft.skipVerified() || item.getOrDefault("cleaned_at","").isBlank()) reviewed.add(id(item));
+
+                if (!draft.skipVerified() || item.getOrDefault("cleaned_at","").isBlank())
+                    reviewed.add(id(item));
+
             }
             store.applyCleanup(draft.id(),draft.sourceRevision(),draft.dictionary().revision(),draft.representatives(),reviewed);
         }
-        // O comprovante SQL permite retomar mesmo se o processo cair antes de salvar este arquivo.
+
         var updated=new Draft(draft.id(),"APPLIED",draft.sourceRevision(),draft.createdAt(),draft.skipVerified(),draft.dictionary(),
                 draft.items(),draft.representatives(),draft.decisions(),draft.results(),draft.analyzedId(),AUTOMATIC_RULE);
         save(updated); return view(updated);

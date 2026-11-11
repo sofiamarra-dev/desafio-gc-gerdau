@@ -117,6 +117,7 @@ public class CatalogController {
         for (var item : store.batchItems(batch, 0, 50_000)) {
             @SuppressWarnings("unchecked") var fields = (Map<String, String>) item.get("fields");
             var row = new ArrayList<String>();
+
             row.add(item.get("row_number").toString());
             row.add(item.get("status").toString());
             row.addAll(cells(fields));
@@ -144,29 +145,40 @@ public class CatalogController {
 
     private static ResponseEntity<byte[]> workbook(String filename, List<String> headers, List<List<String>> rows, boolean template) throws IOException {
         try (var workbook = new XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
+
             var sheet = workbook.createSheet("Serviços");
             var header = sheet.createRow(0);
-            for (int c=0; c<headers.size(); c++) { header.createCell(c).setCellValue(headers.get(c)); sheet.setColumnWidth(c, 24 * 256); }
+
+            for (int c=0; c<headers.size(); c++) {
+                header.createCell(c).setCellValue(headers.get(c)); sheet.setColumnWidth(c, 24 * 256);
+            }
+
             if (template) {
+
                 workbook.setSheetName(0, "Solicitações");
                 var textStyle = workbook.createCellStyle();
                 textStyle.setDataFormat(workbook.createDataFormat().getFormat("@"));
+
                 var headerStyle = workbook.createCellStyle();
                 headerStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
                 headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
                 headerStyle.setWrapText(true);
+
                 var font = workbook.createFont();
                 font.setBold(true);
                 font.setColor(IndexedColors.WHITE.getIndex());
                 headerStyle.setFont(font);
                 header.setHeightInPoints(32);
+
                 for (int c = 0; c < headers.size(); c++) {
                     sheet.setDefaultColumnStyle(c, textStyle);
                     sheet.setColumnWidth(c, (c == 0 ? 60 : 28) * 256);
                     header.getCell(c).setCellStyle(headerStyle);
                 }
+
                 var anchor = workbook.getCreationHelper().createClientAnchor();
                 anchor.setCol1(0); anchor.setCol2(4); anchor.setRow1(0); anchor.setRow2(4);
+
                 var comment = sheet.createDrawingPatriarch().createCellComment(anchor);
                 comment.setString(workbook.getCreationHelper().createRichTextString("Obrigatório. Preencha uma descrição por linha, a partir da linha 2. Mantenha os cabeçalhos. Os demais campos são opcionais."));
                 comment.setAuthor("Catálogo de serviços");
@@ -175,7 +187,9 @@ public class CatalogController {
             int n = 1;
             for (var values : rows) {
                 var row = sheet.createRow(n++);
-                for (int c=0; c<values.size(); c++) row.createCell(c).setCellValue(values.get(c));
+
+                for (int c=0; c<values.size(); c++)
+                    row.createCell(c).setCellValue(values.get(c));
             }
             sheet.createFreezePane(0, 1);
             workbook.write(out);
